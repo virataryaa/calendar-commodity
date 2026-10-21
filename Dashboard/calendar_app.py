@@ -533,15 +533,16 @@ def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
             f"<span style='color:#8a94a8'>{foot}</span><extra></extra>")
 
 
-def month_header(fig: go.Figure, x0, x1) -> None:
+def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
     """Month strip across the top: alternating navy-tint blocks, centred labels (year in muted gold),
     a gold hairline beneath, and a faint matching stripe down every other month of the plot."""
     x0, x1 = pd.Timestamp(x0), pd.Timestamp(x1)
+    off = 22 if days else 0   # room for a row of day numbers under the month strip
     months = pd.date_range(x0.replace(day=1), x1, freq="MS")
     dense = len(months) > 14   # long horizons: year only on January and the first month
     for i, m in enumerate(months):
         a, b = max(m, x0), min(m + pd.offsets.MonthBegin(1), x1)
-        fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7, y1=31,
+        fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7 + off, y1=31 + off,
                       fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above")
         if i % 2 == 0:
             fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
@@ -550,13 +551,21 @@ def month_header(fig: go.Figure, x0, x1) -> None:
             fig.add_shape(type="line", xref="x", x0=m, x1=m, yref="paper", y0=0, y1=1,
                           line=dict(color="rgba(90,102,136,0.13)", width=0.6, dash="dot"), layer="below")
         if (b - a).days >= 8:
-            fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19, showarrow=False, yanchor="middle",
+            fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19 + off, showarrow=False, yanchor="middle",
                                text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
                                                         else f" <span style='color:{GOLD}'>’{m:%y}</span>"),
                                font=dict(size=10.5, color=NAVY))
-    fig.add_shape(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5, y1=5,
+    fig.add_shape(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5 + off, y1=5 + off,
                   line=dict(color="rgba(176,141,87,0.55)", width=1))
     fig.update_xaxes(showticklabels=False, ticks="", showgrid=False)
+    if days:   # short horizons: each day's number under its month, weekends lighter
+        for d in pd.date_range(x0.normalize(), x1, freq="D"):
+            if d < x0 or d + pd.Timedelta(days=1) > x1:
+                continue
+            fig.add_annotation(x=d + pd.Timedelta(hours=12), yref="paper", y=1, yshift=13, showarrow=False,
+                               yanchor="middle", text=str(d.day),
+                               font=dict(size=8.5, color="#c3c9d6" if d.weekday() >= 5 else "#7a86a8"))
+        fig.update_layout(margin=dict(t=62))
 
 
 def fmt(d) -> str:
@@ -831,7 +840,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                              gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
-            month_header(fig, *xrange)
+            month_header(fig, *xrange, days=horizon <= 3)
             st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
@@ -916,7 +925,7 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
             fig2.update_yaxes(tickvals=list(yi.values()), range=[len(rows_c) - 0.5, -0.5],
                               ticktext=[f"<b>{c}</b>  <span style='color:#8a94a8'>{COMMODITY_LABELS[c]}</span>"
                                         for c in rows_c], tickfont=dict(size=11))
-            month_header(fig2, *xrange)
+            month_header(fig2, *xrange, days=horizon <= 3)
             st.plotly_chart(fig2, width="stretch", config={"displayModeBar": False})
 
 if tab_heat.open is not False:   # lazy: only the open tab runs
