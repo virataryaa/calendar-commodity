@@ -26,7 +26,7 @@ EVENTS = {                      # key: (label, long name)
     "LND": ("LND", "Last Notice Day"),
     "OPT": ("OPT", "Option Expiry"),
 }
-WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 # Strict light theme (same as Cecafe Daily): CSS hard-codes colours, config.toml pins base="light".
 st.markdown(
@@ -71,34 +71,39 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* Month grid */
-.mg-wrap { display: flex; flex-direction: column; gap: 18px; font-family: 'Inter', sans-serif; }
+.mg-wrap { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; font-family: 'Inter', sans-serif; }
 .mg { background: #ffffff; border: 1px solid #e3e7f0; border-radius: 14px; box-shadow: 0 1px 3px rgba(10,36,99,0.06); overflow: hidden; }
 .mg.cur { border-color: #0a2463; box-shadow: 0 2px 10px rgba(10,36,99,0.12); }
 .mg-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 10px; border-bottom: 1px solid #eef0f6; }
 .mg-name { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 600; color: #0a2463; }
 .mg-name small { font-family: 'Inter', sans-serif; font-size: 0.8rem; color: #8a94a8; font-weight: 500; margin-left: 4px; }
 .mg-count { font-size: 11px; font-weight: 600; color: #0a2463; background: #e6e9f2; padding: 2px 9px; border-radius: 999px; }
-.mg-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.mg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .mg-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8a94a8; font-weight: 600;
           padding: 6px 8px 5px; background: #f6f7fb; border-bottom: 1px solid #eef0f6; }
-.mg-day { min-height: 64px; padding: 5px 5px 6px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; }
-.mg-day:nth-child(5n) { border-right: none; }
-.mg-day .n { font-size: 11px; font-weight: 600; color: #1a1a2e; margin: 0 0 4px 2px; }
-.mg-chips { display: flex; flex-wrap: wrap; gap: 3px 4px; }
+.mg-dow.we { color: #b4bccd; background: #f1f3f8; }
+.mg-day { min-height: 92px; padding: 6px 6px 7px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; }
+.mg-day:nth-child(7n) { border-right: none; }
+.mg-day.we { background: #f7f8fb; }
+.mg-day .n { font-size: 11px; font-weight: 600; color: #1a1a2e; margin: 0 0 5px 2px; }
+.mg-day.we .n { color: #a3abbd; }
+.mg-chips { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .mg-day.out { background: #fbfbfd; }
-.mg-day.out .n { color: #c9cfdc; font-weight: 500; }
+.mg-day.out .n { color: #d3d8e3; font-weight: 500; }
 .mg-day.past .n { color: #a3abbd; }
-.mg-day.past .chip { opacity: .45; }
-.mg-day.today { background: #f3f6fd; }
+.mg-day.past .chip { opacity: .4; filter: saturate(.6); }
+.mg-day.today { background: #f3f6fd; box-shadow: inset 0 0 0 1.5px #0a2463; }
 .mg-day.today .n { display: inline-block; background: #0a2463; color: #ffffff; border-radius: 999px; padding: 0 7px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; line-height: 1.3;
-        padding: 2px 7px 2px 5px; border-radius: 5px; border-left: 3px solid; white-space: nowrap; overflow: hidden; }
-.chip .c { font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; }
-.chip .t { font-size: 9px; font-weight: 700; letter-spacing: .04em; }
-.chip.FND { background: #e8f5ef; border-color: #1f9d6f; } .chip.FND .t { color: #1f9d6f; }
-.chip.LTD { background: #fbf2e3; border-color: #c98a1f; } .chip.LTD .t { color: #b07612; }
-.chip.LND { background: #f9e9e9; border-color: #c94a4a; } .chip.LND .t { color: #c94a4a; }
-.chip.OPT { background: #e6f2f4; border-color: #1f8a9c; } .chip.OPT .t { color: #1f8a9c; }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 10.5px; line-height: 1;
+        padding: 3px 3px 3px 8px; border-radius: 999px; background: #ffffff; border: 1px solid;
+        box-shadow: 0 1px 2px rgba(10,36,99,0.06); white-space: nowrap; cursor: default; transition: transform .12s, box-shadow .12s; }
+.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(10,36,99,0.14); }
+.chip .c { font-weight: 600; color: #1a1a2e; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; }
+.chip .t { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; color: #ffffff; padding: 3px 6px; border-radius: 999px; }
+.chip.FND { border-color: #bfe3d3; } .chip.FND .t { background: #1f9d6f; }
+.chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
+.chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
+.chip.OPT { border-color: #b9dce2; } .chip.OPT .t { background: #1f8a9c; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -128,18 +133,18 @@ def load_events() -> pd.DataFrame:
 
 
 def month_card(year: int, month: int, ev: pd.DataFrame, today: date) -> str:
-    """One month as an HTML card: Mon–Fri grid, each day listing its event chips."""
+    """One month as an HTML card: Mon–Sun grid, each day listing its event chips."""
     by_day = {d.date(): g for d, g in ev.groupby("date")}
     order = {k: i for i, k in enumerate(EVENTS)}
     weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
-    cells = [f'<div class="mg-dow">{w}</div>' for w in WEEKDAYS]
+    cells = [f'<div class="mg-dow{" we" if w in ("Sat", "Sun") else ""}">{w}</div>' for w in WEEKDAYS]
     n_events = 0
     for week in weeks:
-        days = week[:5]
+        days = week
         if all(d.month != month for d in days):
             continue
         for d in days:
-            cls = ["mg-day"]
+            cls = ["mg-day"] + (["we"] if d.weekday() >= 5 else [])
             if d.month != month:
                 cls.append("out")
                 cells.append(f'<div class="{" ".join(cls)}"><div class="n">{d.day}</div></div>')
@@ -195,7 +200,7 @@ with st.sidebar:
 ev = events[events["commodity"].isin(comms or []) & events["event"].isin(evsel or [])]
 
 st.markdown('<div class="page-title">Month Grid</div>'
-            '<div class="card-desc">Weekdays only. Hover a chip for the full contract and date.</div>',
+            '<div class="card-desc">Weekends shaded. Hover a chip for the full contract and date.</div>',
             unsafe_allow_html=True)
 st.markdown(
     '<div class="lgd">'
