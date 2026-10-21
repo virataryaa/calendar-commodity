@@ -15,7 +15,11 @@ DB_DIR = Path(__file__).resolve().parent.parent / "Database"
 
 NAVY, TEAL, GREEN, RED, AMBER, GREY = "#0a2463", "#1f8a9c", "#1f9d6f", "#c94a4a", "#c98a1f", "#5a6688"
 
-COMMODITY_LABELS = {"KC": "Arabica Coffee"}
+COMMODITY_LABELS = {
+    "KC": "Arabica Coffee", "RC": "Robusta Coffee", "CC": "US Cocoa",
+    "LCC": "London Cocoa", "SB": "Sugar No. 11", "LSU": "White Sugar No. 5",
+    "CT": "Cotton No. 2",
+}
 
 st.set_page_config(page_title="Commodity Calendar", layout="wide")
 
@@ -124,11 +128,12 @@ with tab_futures:
             marker=dict(color=AMBER, size=10, symbol="diamond"), name="LTD", showlegend=False,
             hovertext=f"LTD: {r['LTD'].strftime('%d %b %Y')}", hoverinfo="text",
         ))
-        fig.add_trace(go.Scatter(
-            x=[r["LND"]], y=[r["contract"]], mode="markers",
-            marker=dict(color=RED, size=10), name="LND", showlegend=False,
-            hovertext=f"LND: {r['LND'].strftime('%d %b %Y')}", hoverinfo="text",
-        ))
+        if pd.notna(r["LND"]):
+            fig.add_trace(go.Scatter(
+                x=[r["LND"]], y=[r["contract"]], mode="markers",
+                marker=dict(color=RED, size=10), name="LND", showlegend=False,
+                hovertext=f"LND: {r['LND'].strftime('%d %b %Y')}", hoverinfo="text",
+            ))
     fig.add_vline(x=today, line_dash="dash", line_color=GREY)
     fig.update_layout(
         template="plotly_white", height=max(300, 28 * len(futures_df)),
@@ -139,10 +144,12 @@ with tab_futures:
     st.caption("Green = FND · Amber diamond = LTD · Red = LND · dashed line = today")
 
     display_df = futures_df.copy()
-    for c in ["FND", "LTD", "LND"]:
-        display_df[c] = display_df[c].dt.strftime("%d %b %Y (%a)")
+    for c in ["FTD", "FND", "LTD", "LND"]:
+        display_df[c] = display_df[c].apply(
+            lambda d: d.strftime("%d %b %Y (%a)") if pd.notna(d) else "—"
+        )
     st.dataframe(
-        display_df[["contract", "month_name", "year", "FND", "LTD", "LND"]],
+        display_df[["contract", "month_name", "year", "FTD", "FND", "LTD", "LND"]],
         use_container_width=True, hide_index=True,
     )
 
@@ -153,29 +160,20 @@ with tab_options:
         st.markdown('<div class="card-desc">Regular and serial options — Last Trading Day, expiration, and FND buffer check.</div>',
                     unsafe_allow_html=True)
 
-        bad_buffer = options_df[~options_df["buffer_ok"]]
-        if not bad_buffer.empty:
-            st.warning(
-                f"{len(bad_buffer)} option(s) show fewer than the exchange's 4-trading-day minimum "
-                "gap to the underlying future's FND under the plain 'second Friday' rule — the "
-                "exchange's real calendar likely shifts the LTD earlier for these. Verify against "
-                "ICE's published option calendar: " +
-                ", ".join(bad_buffer["option"].tolist())
-            )
-
         display_opt = options_df.copy()
-        for c in ["FTD", "LTD", "expiration", "underlying_FND"]:
+        for c in ["FTD", "LTD", "underlying_FND"]:
             display_opt[c] = display_opt[c].apply(
                 lambda d: d.strftime("%d %b %Y (%a)") if pd.notna(d) else "—"
             )
+        display_opt["adjusted"] = options_df["ltd_adjusted"].map({True: "Yes", False: ""})
 
-        def highlight_buffer(row):
-            return ["background-color: #fbe9e9" if not row["buffer_ok"] else "" for _ in row]
+        def highlight_adjusted(row):
+            return ["background-color: #fdf3e1" if row["adjusted"] == "Yes" else "" for _ in row]
 
         st.dataframe(
             display_opt[["option", "type", "month_name", "year", "underlying_future",
-                          "FTD", "LTD", "expiration", "underlying_FND",
-                          "buffer_trading_days", "buffer_ok"]]
-            .style.apply(highlight_buffer, axis=1),
+                          "FTD", "LTD", "underlying_FND", "buffer_trading_days", "adjusted"]]
+            .style.apply(highlight_adjusted, axis=1),
             use_container_width=True, hide_index=True,
         )
+        st.caption("Adjusted = LTD pulled earlier to keep the exchange's minimum gap to FND.")

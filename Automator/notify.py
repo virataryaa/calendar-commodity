@@ -12,7 +12,7 @@ from pathlib import Path
 
 TO_EMAIL = "virat.arya@etgworld.com"
 DB_DIR   = Path(r"C:\Users\virat.arya\ETG\SoftsDatabase - Documents\Database\Hardmine\Fundamental\Calendar\Database")
-COMMS    = ["KC"]
+COMMS    = ["KC", "RC", "CC", "LCC", "SB", "LSU", "CT"]
 
 status     = sys.argv[1] if len(sys.argv) > 1 else "ok"
 git_status = sys.argv[2] if len(sys.argv) > 2 else "unknown"
