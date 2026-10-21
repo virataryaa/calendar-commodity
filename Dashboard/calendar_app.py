@@ -22,6 +22,8 @@ COMMODITY_LABELS = {
     "LCC": "London Cocoa", "SB": "Sugar No. 11", "LSU": "White Sugar No. 5",
     "CT": "Cotton No. 2",
 }
+SHORT_NAME = {"KC": "Arabica", "RC": "Robusta", "CC": "NY Cocoa", "LCC": "Ldn Cocoa",
+              "SB": "Sugar No.11", "LSU": "White Sugar", "CT": "Cotton"}
 EXCHANGES = {"New York": ["KC", "CC", "SB", "CT"], "Europe": ["RC", "LCC", "LSU"]}
 EX_SHORT = {"New York": "NY", "Europe": "EU"}
 EVENTS = {                      # key: (label, long name)
@@ -587,7 +589,7 @@ with tab_gantt:
                           y0=a - 0.32, y1=b + 0.32, line=dict(color="rgba(10,36,99,0.28)", width=3))
             fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-66, y=(a + b) / 2, yanchor="middle",
                                showarrow=False, align="right",
-                               text=f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b><br>"
+                               text=f"<b><span style='color:{NAVY}'>{SHORT_NAME[c]}</span></b><br>"
                                     f"<span style='color:#a3abbd'>{c}</span>", font=dict(size=11.5))
 
         # hairline: trading life up to the notice window
@@ -664,7 +666,7 @@ with tab_gantt:
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
         style_fig(fig, int(30 * (y_end + 1)) + 74)
-        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=150, r=12, t=40, b=34))
+        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=160, r=12, t=40, b=34))
         fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
         fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
