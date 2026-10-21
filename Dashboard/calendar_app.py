@@ -846,7 +846,7 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
                 '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
                 '<span><i style="background:#6d4fc2;width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
                 f'<span>{glyph("OPT")}Option expiry</span>'
-                '<span><span class="gl" style="color:#a0616f;font-size:10px">&#10005;</span>Exchange holiday</span>'
+                '<span><span class="gl" style="color:#a3abbd;font-size:10px">&#9679;</span>Exchange holiday</span>'
                 '</div>', unsafe_allow_html=True)
             span0, span1 = xrange
             fig2 = go.Figure()
@@ -856,7 +856,7 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
                     fig2.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=i - 0.5, y1=i + 0.5,
                                    fillcolor="#f6f7fb", line_width=0, layer="below")
 
-            # exchange holidays: a small rose cross at the foot of each affected row
+            # exchange holidays: a small grey dot at the foot of each affected row
             hw = holidays[holidays["date"].between(span0, span1)]
             hx, hy, hh = [], [], []
             for c, i in yi.items():
@@ -866,8 +866,8 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
                     hh.append(f"<b>{r.holiday}</b><br>{ex_of[c]} closed · {fmt(r.date)}<extra></extra>")
             if hx:
                 fig2.add_trace(go.Scatter(x=hx, y=hy, mode="markers", hovertemplate=hh,
-                                          marker=dict(symbol="x-thin", size=6, color="#a0616f",
-                                                      line=dict(color="#a0616f", width=1.4))))
+                                          marker=dict(symbol="circle", size=6, color="#a3abbd",
+                                                      line=dict(color="#ffffff", width=1))))
 
             # notice windows as rounded bars (min 2 days wide so one-day windows stay visible)
             dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=2))
