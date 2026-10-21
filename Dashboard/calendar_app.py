@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="Commodity Calendar", layout="wide", initial_sidebar_state="expanded")
@@ -123,7 +124,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .chip.FND { border-color: #bfe3d3; } .chip.FND .t { background: #1f9d6f; }
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
 .chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
-.chip.OPT { border-color: #b9dce2; } .chip.OPT .t { background: #1f8a9c; }
+.chip.OPT { border-color: #b3dbe4; } .chip.OPT .t { background: #0f92a8; }
 
 /* Exchange holidays */
 .mg-day.closed { background: repeating-linear-gradient(135deg, #fbf3f3, #fbf3f3 6px, #f7eaea 6px, #f7eaea 12px); }
@@ -139,6 +140,13 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .ht td { padding: 6px 12px; border-top: 1px solid #eef0f6; color: #1a1a2e; }
 .ht td.x { font-weight: 600; color: #c94a4a; } .ht td.o { color: #8a94a8; }
 .ht tr.past td { color: #b4bccd; } .ht tr.past td.x { color: #dca5a5; }
+
+/* Pill tabs */
+.stTabs [data-baseweb="tab-list"] { background: #eef0f6; padding: 4px; border-radius: 999px; gap: 2px; width: fit-content; }
+.stTabs [data-baseweb="tab"] { border-radius: 999px; padding: 4px 18px; height: auto; background: transparent; }
+.stTabs [aria-selected="true"] { background: #0a2463 !important; color: #ffffff !important; }
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
+.sec { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin: 18px 0 0; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -308,45 +316,207 @@ with st.sidebar:
     st.markdown('<div class="sb-label">Months shown</div>', unsafe_allow_html=True)
     n_months = st.pills("Months shown", [2, 4, 6, 12], default=4, label_visibility="collapsed") or 4
 
+
 # ---------------------------------------------------------------------------------------------
-# month grid
+# main: Calendar | Timeline
 # ---------------------------------------------------------------------------------------------
+EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#c94a4a", "OPT": "#0f92a8"}
+EV_SYMBOL = {"FND": "circle", "LTD": "diamond", "LND": "square", "OPT": "triangle-up"}
+NAVY, GRID, AXIS = "#0a2463", "rgba(10,36,99,0.07)", "#8a94a8"
+
 ev = events[events["commodity"].isin(comms or []) & events["event"].isin(evsel or [])]
 hol = holidays[holidays["exchange"].isin(exsel)] if show_hol else holidays.iloc[0:0]
 
-st.markdown('<div class="page-title" style="margin-bottom:10px">Month Grid</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="lgd">'
-    + "".join(f'<span><i style="background:{c}"></i>{EVENTS[k][1]}</span>'
-              for k, c in [("FND", "#1f9d6f"), ("LTD", "#c98a1f"), ("LND", "#c94a4a"), ("OPT", "#1f8a9c")])
-    + '<span><i style="background:#f6dede;border:1px solid #c94a4a"></i>Exchange closed (NY / EU)</span>'
-    + '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>',
-    unsafe_allow_html=True,
-)
 
-cards = []
-for k in range(n_months):
-    m = start + pd.DateOffset(months=k)
-    cards.append(month_card(m.year, m.month, ev, hol, today, details))
-st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
+def legend_html(extra: str = "") -> str:
+    return ('<div class="lgd">'
+            + "".join(f'<span><i style="background:{EV_COLOR[k]}"></i>{EVENTS[k][1]}</span>' for k in EVENTS)
+            + extra + '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>')
+
+
+@st.cache_data(ttl=600)
+def load_table(kind: str) -> pd.DataFrame:
+    """All commodities' futures ('futures') or options ('options') calendars in one frame."""
+    parts = [pd.read_parquet(p) for c in COMMODITY_LABELS
+             if (p := DB_DIR / f"{c.lower()}_{kind}_calendar.parquet").exists()]
+    return pd.concat(parts, ignore_index=True)
+
+
+def style_fig(fig: go.Figure, height: int) -> go.Figure:
+    fig.update_layout(template="plotly_white", height=height, margin=dict(l=8, r=8, t=18, b=6), showlegend=False,
+                      paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
+                      font=dict(family="Inter, sans-serif", size=11, color="#1a1a2e"),
+                      hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(0,0,0,0.12)",
+                                      font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
+    fig.update_xaxes(gridcolor=GRID, color=AXIS, tickformat="%b %y", dtick="M1", ticks="", zeroline=False)
+    fig.update_yaxes(color="#1a1a2e", showgrid=False, ticks="", zeroline=False)
+    return fig
+
+
+def add_today(fig: go.Figure) -> None:
+    t = pd.Timestamp(today)
+    fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1, line=dict(color=NAVY, width=1.5, dash="dot"))
+    fig.add_annotation(x=t, yref="paper", y=1, text="Today", showarrow=False, yanchor="bottom",
+                       font=dict(size=10, color=NAVY))
+
+
+def fmt(d) -> str:
+    return pd.Timestamp(d).strftime("%a %d %b %Y")
+
+
+tab_cal, tab_tl = st.tabs(["Calendar", "Timeline"])
 
 # ---------------------------------------------------------------------------------------------
-# holiday table: New York vs Europe side by side
+# Calendar tab: month grid + NY vs Europe holiday table
 # ---------------------------------------------------------------------------------------------
-if show_hol and exsel:
-    yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())], default=start.year,
-                  label_visibility="collapsed") or start.year
-    st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
-                '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
-                unsafe_allow_html=True)
-    hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
-    rows = ""
-    for d, g in hy.groupby("date"):
-        closed = set(g["exchange"])
-        cls = ' class="past"' if d.date() < today else ""
-        rows += (f'<tr{cls}><td>{" / ".join(dict.fromkeys(g["holiday"]))}</td><td>{d:%a %d %b}</td>'
-                 + "".join(f'<td class="{"x" if e in closed else "o"}">{"Closed" if e in closed else "Open"}</td>'
-                           for e in exsel) + "</tr>")
-    head = "".join(f"<th>{e}</th>" for e in exsel)
-    st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
-                unsafe_allow_html=True)
+with tab_cal:
+    st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
+    st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #c94a4a"></i>'
+                            'Exchange closed (NY / EU)</span>'), unsafe_allow_html=True)
+    cards = []
+    for k in range(n_months):
+        m = start + pd.DateOffset(months=k)
+        cards.append(month_card(m.year, m.month, ev, hol, today, details))
+    st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+    if show_hol and exsel:
+        yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())],
+                      default=start.year, label_visibility="collapsed") or start.year
+        st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
+                    '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
+                    unsafe_allow_html=True)
+        hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
+        rows = ""
+        for d, g in hy.groupby("date"):
+            closed = set(g["exchange"])
+            cls = ' class="past"' if d.date() < today else ""
+            rows += (f'<tr{cls}><td>{" / ".join(dict.fromkeys(g["holiday"]))}</td><td>{d:%a %d %b}</td>'
+                     + "".join(f'<td class="{"x" if e in closed else "o"}">{"Closed" if e in closed else "Open"}</td>'
+                               for e in exsel) + "</tr>")
+        head = "".join(f"<th>{e}</th>" for e in exsel)
+        st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
+                    unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------------------------
+# Timeline tab: contract Gantt, roll-window strip, weekly event heatmap
+# ---------------------------------------------------------------------------------------------
+with tab_tl:
+    horizon = st.pills("Horizon (months)", [3, 6, 12, 24], default=12, key="horizon") or 12
+    win0 = pd.Timestamp(start)
+    win1 = win0 + pd.DateOffset(months=horizon) - pd.Timedelta(days=1)
+    xrange = [win0 - pd.Timedelta(days=2), win1 + pd.Timedelta(days=2)]
+    order = {c: i for i, c in enumerate(COMMODITY_LABELS)}
+
+    fut = load_table("futures")
+    fut = fut[fut["commodity"].isin(comms or [])].copy()
+    fut["w0"] = fut[["FND", "LTD", "LND"]].min(axis=1)
+    fut["w1"] = fut[["FND", "LTD", "LND"]].max(axis=1)
+    fut = fut[(fut["w1"] >= win0) & (fut["w0"] <= win1)]
+    fut = fut.assign(o=fut["commodity"].map(order)).sort_values(["o", "LTD"]).reset_index(drop=True)
+    opt = load_table("options")
+    opt = opt[opt["commodity"].isin(comms or []) & opt["LTD"].between(win0, win1)]
+
+    st.markdown(legend_html(), unsafe_allow_html=True)
+    if fut.empty:
+        st.info("No contract events in this window.")
+    else:
+        # 1. Contract Gantt ----------------------------------------------------------------------
+        st.markdown('<div class="sec">Contract Gantt</div>'
+                    '<div class="card-desc">Grey = trading, navy = notice / delivery window.</div>',
+                    unsafe_allow_html=True)
+        labels = fut["contract"].tolist()
+        fig = go.Figure()
+        life_x, life_y, win_x, win_y = [], [], [], []
+        for r in fut.itertuples():
+            a = max(r.FTD, xrange[0]) if pd.notna(r.FTD) else xrange[0]
+            life_x += [a, r.w0, None]
+            life_y += [r.contract, r.contract, None]
+            win_x += [r.w0, r.w1, None]
+            win_y += [r.contract, r.contract, None]
+        fig.add_trace(go.Scatter(x=life_x, y=life_y, mode="lines", line=dict(color="#c7cedd", width=2),
+                                 hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=win_x, y=win_y, mode="lines", line=dict(color="rgba(10,36,99,0.28)", width=9),
+                                 hoverinfo="skip"))
+        for k in [e for e in ["FND", "LTD", "LND"] if e in (evsel or [])]:
+            s = fut.dropna(subset=[k])
+            fig.add_trace(go.Scatter(
+                x=s[k], y=s["contract"], mode="markers",
+                marker=dict(symbol=EV_SYMBOL[k], size=9, color=EV_COLOR[k], line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[f"<b>{c}</b> · {EVENTS[k][1]}<br>{fmt(d)}<extra></extra>"
+                               for c, d in zip(s["contract"], s[k])]))
+        if "OPT" in (evsel or []):
+            o = opt[opt["underlying_future"].isin(labels)]
+            fig.add_trace(go.Scatter(
+                x=o["LTD"], y=o["underlying_future"], mode="markers",
+                marker=dict(symbol="triangle-up", size=9, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u}<br>{fmt(d)}<extra></extra>"
+                               for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
+        for i in fut.index[fut["commodity"].ne(fut["commodity"].shift())][1:]:
+            fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=i - 0.5, y1=i - 0.5,
+                          line=dict(color="rgba(10,36,99,0.12)", width=1))
+        add_today(fig)
+        style_fig(fig, 26 * len(labels) + 70)
+        fig.update_xaxes(range=xrange)
+        fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed", tickfont=dict(size=10))
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+        # 2. Roll-window strip -------------------------------------------------------------------
+        st.markdown('<div class="sec">Roll Windows</div>'
+                    '<div class="card-desc">Each contract expiry window, all markets on one axis.</div>',
+                    unsafe_allow_html=True)
+        rows_c = [c for c in COMMODITY_LABELS if c in set(fut["commodity"])]
+        ylab = {c: f"{c} · {COMMODITY_LABELS[c]}" for c in rows_c}
+        fig2 = go.Figure()
+        bx, by, tx, ty, tt, th = [], [], [], [], [], []
+        for r in fut.itertuples():
+            bx += [r.w0, r.w1, None]
+            by += [ylab[r.commodity], ylab[r.commodity], None]
+            tx.append(r.w0 + (r.w1 - r.w0) / 2)
+            ty.append(ylab[r.commodity])
+            tt.append(r.contract[len(r.commodity):])
+            th.append(f"<b>{r.contract}</b><br>FND {fmt(r.FND)}<br>LTD {fmt(r.LTD)}"
+                      + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "") + "<extra></extra>")
+        fig2.add_trace(go.Scatter(x=bx, y=by, mode="lines", line=dict(color="rgba(10,36,99,0.55)", width=16),
+                                  hoverinfo="skip"))
+        fig2.add_trace(go.Scatter(x=tx, y=ty, mode="text", text=tt, textposition="top center",
+                                  textfont=dict(size=9.5, color="#1a1a2e"), hovertemplate=th))
+        if "OPT" in (evsel or []):
+            o = opt[opt["commodity"].isin(rows_c)]
+            fig2.add_trace(go.Scatter(
+                x=o["LTD"], y=o["commodity"].map(ylab), mode="markers",
+                marker=dict(symbol="triangle-up", size=8, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1)),
+                hovertemplate=[f"<b>{c}</b> option expiry<br>{fmt(d)}<extra></extra>"
+                               for c, d in zip(o["option"], o["LTD"])]))
+        add_today(fig2)
+        style_fig(fig2, 54 * len(rows_c) + 60)
+        fig2.update_xaxes(range=xrange)
+        fig2.update_yaxes(categoryorder="array", categoryarray=[ylab[c] for c in rows_c], autorange="reversed")
+        st.plotly_chart(fig2, width="stretch", config={"displayModeBar": False})
+
+        # 3. Weekly event heatmap ----------------------------------------------------------------
+        st.markdown('<div class="sec">Event Heatmap</div>'
+                    '<div class="card-desc">Events per week; darker = busier.</div>', unsafe_allow_html=True)
+        e = ev[ev["date"].between(win0, win1)].copy()
+        e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
+        weeks = pd.date_range(win0 - pd.Timedelta(days=win0.weekday()), win1, freq="7D")
+        z, txt, hov = [], [], []
+        for c in rows_c:
+            zr, tr, hr = [], [], []
+            for w in weeks:
+                g = e[(e["commodity"] == c) & (e["week"] == w)].sort_values("date")
+                zr.append(len(g))
+                tr.append(str(len(g)) if len(g) else "")
+                lines = "<br>".join(f"{r.code} {r.event} · {r.date:%a %d %b}" for r in g.itertuples())
+                hr.append(f"<b>{ylab[c]}</b> · week of {w:%d %b %Y}<br>" + (lines or "no events"))
+            z.append(zr)
+            txt.append(tr)
+            hov.append(hr)
+        fig3 = go.Figure(go.Heatmap(
+            z=z, x=weeks, y=[ylab[c] for c in rows_c], text=txt, texttemplate="%{text}",
+            textfont=dict(size=10), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
+            colorscale=[[0, "#f4f6fb"], [0.001, "#c9d3ea"], [1, NAVY]], zmin=0, xgap=2, ygap=2, showscale=False))
+        add_today(fig3)
+        style_fig(fig3, 40 * len(rows_c) + 60)
+        fig3.update_xaxes(range=xrange, showgrid=False)
+        fig3.update_yaxes(autorange="reversed")
+        st.plotly_chart(fig3, width="stretch", config={"displayModeBar": False})
