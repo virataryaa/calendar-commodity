@@ -848,8 +848,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                               f"<span style='color:#a3abbd'>{n} manual event{'s' * (n != 1)}</span><br><br>"
                               f"{items}<br><br><span style='color:#8a94a8'>{rel_day(d).capitalize()}</span><extra></extra>")
                 fig.add_trace(go.Scatter(
-                    x=mx, y=my, mode="markers+text", text=mt, textposition="bottom center",
-                    textfont=dict(size=8.5, color="#b0682a"), hovertemplate=mh,
+                    x=mx, y=my, mode="markers", hovertemplate=mh,   # names only on hover
                     marker=dict(symbol="star", size=12, color=MAN_COLOR, line=dict(color="#ffffff", width=1.5))))
 
             # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
