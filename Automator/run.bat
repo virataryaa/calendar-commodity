@@ -29,6 +29,8 @@ git add Database\*.parquet >> %LOG% 2>&1
 git diff --cached --quiet
 if %ERRORLEVEL% NEQ 0 (
     git commit -m "Auto update: Commodity Calendar %date%" >> %LOG% 2>&1
+    :: the Entry tab commits manual_events.csv from the app, so take those first
+    git pull --rebase --autostash >> %LOG% 2>&1
     git push >> %LOG% 2>&1
     if !ERRORLEVEL! EQU 0 (
         set GIT_STATUS=pushed

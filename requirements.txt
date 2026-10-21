@@ -2,3 +2,4 @@ pandas
 pyarrow
 streamlit==1.56.0
 plotly
+requests

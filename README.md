@@ -22,6 +22,11 @@ published calendars (`Validate/`).
 - **`Dashboard/calendar_app.py`**: Streamlit viewer, futures timeline + table
   and options table.
 - **`Automator/`**: `run.bat` (rebuild + git push + email), `notify.py`.
+- **Entry tab (manual events)**: click a day, tag it Coffee / Cocoa / Sugar / Cotton, add a short
+  name and description. Saved to `Database/manual_events.csv` in this repo through the GitHub API
+  (`Dashboard/ghstore.py`), so everyone sees the same events on the Calendar and Upcoming tabs.
+  Needs `github_token` in Streamlit Secrets (fine-grained, Contents: read and write on
+  calendar-commodity); without it, entries save to the local file only.
 
 ## Coverage
 

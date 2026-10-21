@@ -5,6 +5,9 @@ Ingestion Code/calendar_engine.py parquet output.
 """
 
 import calendar
+import html
+import io
+import uuid
 from datetime import date
 from itertools import groupby
 from pathlib import Path
@@ -13,9 +16,51 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import ghstore as gh
+
 st.set_page_config(page_title="Commodity Calendar", layout="wide", initial_sidebar_state="expanded")
 
 DB_DIR = Path(__file__).resolve().parent.parent / "Database"
+
+# Manual events (Entry tab): one CSV in the repo, written through the GitHub API so every user sees them
+MAN_FILE = DB_DIR / "manual_events.csv"
+MAN_PATH = "Database/manual_events.csv"          # same file, path inside the GitHub repo
+MAN_COLS = ["id", "date", "group", "title", "description", "created"]
+GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"]}
+MAN_COLOR = "#d9822b"
+
+
+def _parse_manual(text: str) -> pd.DataFrame:
+    df = pd.read_csv(io.StringIO(text), dtype=str).fillna("") if text.strip() else pd.DataFrame(columns=MAN_COLS)
+    for c in MAN_COLS:
+        if c not in df:
+            df[c] = ""
+    return df[MAN_COLS]
+
+
+def load_manual() -> pd.DataFrame:
+    text = None
+    if gh.enabled():
+        try:
+            text = gh.cached_text(MAN_PATH) or gh.read(MAN_PATH)[0]
+        except gh.GitHubError as ex:
+            st.sidebar.warning(f"Manual events: {ex}")
+    if text is None:
+        text = MAN_FILE.read_text(encoding="utf-8") if MAN_FILE.exists() else ",".join(MAN_COLS) + "\n"
+    df = _parse_manual(text)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    return df.dropna(subset=["date"]).reset_index(drop=True)
+
+
+def save_manual(change, message: str) -> None:
+    """change(df) -> df. Commits to GitHub when a token is configured, else writes the local file."""
+    def apply(text):
+        return change(_parse_manual(text))[MAN_COLS].to_csv(index=False, lineterminator="\n").rstrip("\n") + "\n", None
+    if gh.enabled():
+        gh.commit(MAN_PATH, apply, message)
+    else:
+        text = MAN_FILE.read_text(encoding="utf-8") if MAN_FILE.exists() else ""
+        MAN_FILE.write_text(apply(text)[0], encoding="utf-8")
 
 COMMODITY_LABELS = {
     "KC": "Arabica Coffee", "RC": "Robusta Coffee", "CC": "US Cocoa",
@@ -170,6 +215,26 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .up tr.hol td:not(.d) { color: #a86565; }
 .up tr.ev:hover td:not(.d), .up tr.hol:hover td:not(.d) { background: #f9fafc; }
 
+/* Manual events */
+.chip.MAN { border-color: #f3d2b3; } .chip.MAN .t { background: #d9822b; }
+.pop .pdesc { white-space: normal; max-width: 260px; color: #1a1a2e; padding: 3px 0 1px; }
+
+/* Entry tab (last tab) in orange */
+.stTabs button[data-baseweb="tab"]:last-of-type p { color: #d9822b !important; font-weight: 600; }
+.stTabs button[data-baseweb="tab"]:last-of-type[aria-selected="true"] { background: #d9822b !important; }
+.stTabs button[data-baseweb="tab"]:last-of-type[aria-selected="true"] p { color: #ffffff !important; }
+
+/* Entry calendar: one button per day */
+.ent-title { text-align: center; font-family: 'Fraunces', Georgia, serif; font-size: 1.25rem; font-weight: 600; color: #0a2463; padding-top: 4px; }
+.ent-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8a94a8; font-weight: 600; text-align: center; }
+.st-key-entry_grid button { min-height: 60px; border-radius: 10px; border: 1px solid #e3e7f0; background: #ffffff; }
+.st-key-entry_grid button:hover { border-color: #d9822b; background: #fff8f1; }
+.st-key-entry_grid button[kind="primary"] { background: #fff1e3; border-color: #d9822b; }
+.st-key-entry_grid button[kind="primary"] p { color: #8a4a12 !important; }
+.st-key-entry_grid button p { font-size: 12.5px; color: #1a1a2e; }
+.ent-row { font-size: 12.5px; color: #1a1a2e; padding-top: 7px; }
+.ent-row.m { color: #8a94a8; }
+
 /* Pill tabs */
 /* Streamlit's tab strip clips overflow, which cropped the top of the pill track */
 .stTabs, .stTabs > div, .stTabs [data-baseweb="tab-list"] { overflow: visible !important; }
@@ -275,10 +340,12 @@ def holiday_tags(g: pd.DataFrame, d: date, today: date) -> str:
     return tags
 
 
-def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today: date, det: dict) -> str:
+def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today: date, det: dict,
+               man: pd.DataFrame | None = None) -> str:
     """One month as an HTML card: Mon–Sun grid, each day listing holidays then event chips."""
     by_day = {d.date(): g for d, g in ev.groupby("date")}
     hol_by_day = {d.date(): g for d, g in hol.groupby("date")}
+    man_by_day = {d.date(): g for d, g in man.groupby("date")} if man is not None and not man.empty else {}
     order = {k: i for i, k in enumerate(EVENTS)}
     weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
     cells = [f'<div class="mg-dow{" we" if w in ("Sat", "Sun") else ""}">{w}</div>' for w in WEEKDAYS]
@@ -302,6 +369,16 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
             if hg is not None and d.weekday() < 5:
                 cls.append("closed")
                 chips += holiday_tags(hg, d, today)
+            mg_ = man_by_day.get(d)
+            if mg_ is not None:
+                n_events += len(mg_)
+                for r in mg_.itertuples():
+                    t, dsc = html.escape(r.title), html.escape(r.description)
+                    pop = (f'<div class="pop"><div class="ph">{t}</div><div class="ps">{r.group} event · manual entry</div>'
+                           + (f'<div class="pdesc">{dsc}</div>' if dsc else "")
+                           + f'<div class="pf">{_when(d, today)}</div></div>')
+                    chips += (f'<div class="chip MAN"><span class="c">{t}</span>'
+                              f'<span class="t">{r.group[:3].upper()}</span>{pop}</div>')
             g = by_day.get(d)
             if g is not None:
                 g = g.assign(o=g["event"].map(order)).sort_values(["o", "commodity", "code"])
@@ -342,6 +419,9 @@ with st.sidebar:
     evsel = st.pills("Events", list(EVENTS), selection_mode="multi",
                      default=list(EVENTS), label_visibility="collapsed")
     show_hol = st.toggle("Exchange holidays", value=True)
+    show_man = st.toggle("Manual events", value=True)
+    man_groups = (st.pills("Manual groups", list(GROUPS), selection_mode="multi", default=list(GROUPS),
+                           key="man_groups", label_visibility="collapsed") or []) if show_man else []
 
     first = pd.Timestamp(today.year, today.month, 1)
     months = [first + pd.DateOffset(months=k) for k in range(-12, 25)]
@@ -452,8 +532,11 @@ def fmt(d) -> str:
     return pd.Timestamp(d).strftime("%a %d %b %Y")
 
 
-tab_cal, tab_up, tab_gantt, tab_roll, tab_heat, tab_hol = st.tabs(
-    ["Calendar", "Upcoming", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays"])
+manual = load_manual()
+man_view = manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0]
+
+tab_cal, tab_up, tab_gantt, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
+    ["Calendar", "Upcoming", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays", "Entry"])
 
 with tab_up:
     days = st.pills("Next", [7, 14, 30, 60], default=14, format_func=lambda d: f"{d} days", key="up_days",
@@ -469,6 +552,8 @@ with tab_up:
         hu = holidays[holidays["exchange"].isin(exsel) & holidays["date"].between(t0, t1)]
         for (d, name), g in hu.groupby(["date", "holiday"]):
             items.append((d, 1, 0, (name, sorted(g["exchange"], key=list(EXCHANGES).index))))
+    for r in man_view[man_view["date"].between(t0, t1)].itertuples():
+        items.append((r.date, 2, 0, r))
     items.sort(key=lambda x: (x[0], x[1], x[2]))
 
     if not items:
@@ -499,7 +584,12 @@ with tab_up:
                     date_td = (f'<td class="d{now}" rowspan="{len(grp)}"><div class="dl">{d:%a %d %b}</div>'
                                f'<div class="rel">{rel(d)}</div></td>')
                 first = " first" if j == 0 else ""
-                if is_hol:
+                if is_hol == 2:
+                    body += (f'<tr class="ev{first}">{date_td}'
+                             f'<td><span class="gl" style="color:{MAN_COLOR};font-size:10px">★</span>'
+                             f'{html.escape(r.title)}</td><td class="k">{r.group}</td>'
+                             f'<td class="m">{html.escape(r.description[:90])}<span class="tag">Manual</span></td></tr>')
+                elif is_hol:
                     name, exs = r
                     affected = ", ".join(c for e in exs for c in EXCHANGES[e])
                     body += (f'<tr class="hol{first}">{date_td}'
@@ -512,7 +602,7 @@ with tab_up:
                              f'<td class="k">{r.code}</td>'
                              f'<td class="m">{COMMODITY_LABELS[r.commodity]}'
                              f'<span class="tag">{ex_tag[r.commodity]}</span></td></tr>')
-        n_ev = sum(1 for x in items if not x[1])
+        n_ev = sum(1 for x in items if x[1] != 1)
         n_hol = len(items) - n_ev
         st.markdown(f'<div class="card-desc">{n_ev} event{"s" * (n_ev != 1)}'
                     + (f' and {n_hol} closure{"s" * (n_hol != 1)}' if n_hol else "")
@@ -523,11 +613,13 @@ with tab_up:
 with tab_cal:
     st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
     st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #a0616f"></i>'
-                            'Exchange closed (NY / EU)</span>'), unsafe_allow_html=True)
+                            'Exchange closed (NY / EU)</span>'
+                            + (f'<span><span class="gl" style="color:{MAN_COLOR}">★</span>Manual event</span>'
+                               if show_man else "")), unsafe_allow_html=True)
     cards = []
     for k in range(n_months):
         m = start + pd.DateOffset(months=k)
-        cards.append(month_card(m.year, m.month, ev, hol, today, details))
+        cards.append(month_card(m.year, m.month, ev, hol, today, details, man_view))
     st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 
@@ -863,3 +955,79 @@ with tab_hol:
         head = "".join(f"<th>{e}</th>" for e in exsel)
         st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
                     unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------------------------
+# Entry tab: click a day, tag it Coffee / Cocoa / Sugar / Cotton, add a short name and description
+# ---------------------------------------------------------------------------------------------
+@st.dialog("Add calendar event")
+def entry_dialog(d: date) -> None:
+    st.markdown(f"**{d:%A %d %B %Y}**")
+    same_day = manual[manual["date"].dt.date == d]
+    for r in same_day.itertuples():
+        st.caption(f"Already on this day: {r.title} ({r.group})")
+    grp = st.radio("Tag as", list(GROUPS), horizontal=True, format_func=lambda g: f"{g} event")
+    title = st.text_input("Short name", max_chars=40, placeholder="e.g. Starbucks earnings")
+    desc = st.text_area("Description", max_chars=400, placeholder="Optional detail")
+    if st.button("Save", type="primary", disabled=not title.strip()):
+        new = {"id": uuid.uuid4().hex[:8], "date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(),
+               "description": desc.strip(), "created": f"{date.today():%Y-%m-%d}"}
+        try:
+            save_manual(lambda df: pd.concat([df, pd.DataFrame([new])], ignore_index=True),
+                        f"Calendar entry: {new['title']} ({grp}, {d:%d %b %Y})")
+        except gh.GitHubError as ex:
+            st.error(str(ex))
+            return
+        st.rerun()
+
+
+with tab_ent:
+    st.markdown('<div class="page-title" style="margin:6px 0 2px">Add an event</div>'
+                '<div class="card-desc">Click a day, tag it Coffee, Cocoa, Sugar or Cotton, and save. '
+                'It shows on the Calendar and Upcoming tabs.</div>', unsafe_allow_html=True)
+    if not gh.enabled():
+        st.caption("Saving to this machine only. Add github_token to Streamlit Secrets to share entries.")
+    em = st.session_state.setdefault("entry_month", pd.Timestamp(today.year, today.month, 1))
+    nav = st.columns([1, 5, 1])
+    if nav[0].button("‹ Prev", key="ent_prev", width="stretch"):
+        st.session_state["entry_month"] = em - pd.DateOffset(months=1)
+        st.rerun()
+    if nav[2].button("Next ›", key="ent_next", width="stretch"):
+        st.session_state["entry_month"] = em + pd.DateOffset(months=1)
+        st.rerun()
+    nav[1].markdown(f'<div class="ent-title">{em:%B %Y}</div>', unsafe_allow_html=True)
+
+    counts = manual.groupby(manual["date"].dt.date).size().to_dict()
+    with st.container(key="entry_grid"):
+        hdr = st.columns(7)
+        for i, w in enumerate(WEEKDAYS):
+            hdr[i].markdown(f'<div class="ent-dow">{w}</div>', unsafe_allow_html=True)
+        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(em.year, em.month):
+            cols = st.columns(7)
+            for i, d in enumerate(week):
+                if d.month != em.month:
+                    cols[i].markdown("&nbsp;", unsafe_allow_html=True)
+                    continue
+                n = counts.get(d, 0)
+                label = f"{d.day}" + (f"   ★ {n}" if n else "")
+                if cols[i].button(label, key=f"ent_{d}", width="stretch",
+                                  type="primary" if d == today else "secondary"):
+                    entry_dialog(d)
+
+    st.markdown('<div class="sec">Saved events</div>', unsafe_allow_html=True)
+    if manual.empty:
+        st.markdown('<div class="card-desc">No manual events yet.</div>', unsafe_allow_html=True)
+    else:
+        for r in manual.sort_values("date").itertuples():
+            c = st.columns([1.3, 0.9, 2, 4, 0.8])
+            c[0].markdown(f'<div class="ent-row"><b>{r.date:%a %d %b %Y}</b></div>', unsafe_allow_html=True)
+            c[1].markdown(f'<div class="ent-row" style="color:{MAN_COLOR}">★ {r.group}</div>', unsafe_allow_html=True)
+            c[2].markdown(f'<div class="ent-row"><b>{html.escape(r.title)}</b></div>', unsafe_allow_html=True)
+            c[3].markdown(f'<div class="ent-row m">{html.escape(r.description)}</div>', unsafe_allow_html=True)
+            if c[4].button("Delete", key=f"del_{r.id}", width="stretch"):
+                try:
+                    save_manual(lambda df, i=r.id: df[df["id"] != i], f"Calendar entry removed: {r.title} ({r.date:%d %b %Y})")
+                except gh.GitHubError as ex:
+                    st.error(str(ex))
+                else:
+                    st.rerun()
