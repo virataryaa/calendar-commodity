@@ -159,7 +159,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 # data
 # ---------------------------------------------------------------------------------------------
 @st.cache_data(ttl=600)
-def load_events() -> pd.DataFrame:
+def load_events(_v: float = 0) -> pd.DataFrame:
     """Every FND/LTD/LND/option-expiry date across all commodities, one row per event."""
     rows = []
     for c in COMMODITY_LABELS:
@@ -178,7 +178,7 @@ def load_events() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600)
-def load_details() -> dict:
+def load_details(_v: float = 0) -> dict:
     """(code, 'fut'|'opt') -> that contract's full date set, for the hover popover."""
     det = {}
     for c in COMMODITY_LABELS:
@@ -225,7 +225,7 @@ def chip_pop(r, d: date, today: date, det: dict) -> str:
 
 
 @st.cache_data(ttl=600)
-def load_holidays() -> pd.DataFrame:
+def load_holidays(_v: float = 0) -> pd.DataFrame:
     h = pd.read_parquet(DB_DIR / "holidays.parquet")
     h["date"] = pd.to_datetime(h["date"]).dt.normalize()
     return h
@@ -289,9 +289,12 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
 # ---------------------------------------------------------------------------------------------
 # sidebar
 # ---------------------------------------------------------------------------------------------
-events = load_events()
-holidays = load_holidays()
-details = load_details()
+# Cache key = newest parquet mtime, so a data push is picked up immediately instead of
+# serving a cached frame from before the push (cache only resets when code changes).
+data_v = max(p.stat().st_mtime for p in DB_DIR.glob("*.parquet"))
+events = load_events(data_v)
+holidays = load_holidays(data_v)
+details = load_details(data_v)
 today = date.today()
 
 with st.sidebar:
@@ -337,7 +340,7 @@ def legend_html(extra: str = "") -> str:
 
 
 @st.cache_data(ttl=600)
-def load_table(kind: str) -> pd.DataFrame:
+def load_table(kind: str, _v: float = 0) -> pd.DataFrame:
     """All commodities' futures ('futures') or options ('options') calendars in one frame."""
     parts = [pd.read_parquet(p) for c in COMMODITY_LABELS
              if (p := DB_DIR / f"{c.lower()}_{kind}_calendar.parquet").exists()]
@@ -409,13 +412,16 @@ with tab_tl:
     xrange = [win0 - pd.Timedelta(days=2), win1 + pd.Timedelta(days=2)]
     order = {c: i for i, c in enumerate(COMMODITY_LABELS)}
 
-    fut = load_table("futures")
+    fut = load_table("futures", data_v)
+    for col in ["FTD", "FND", "LTD", "LND", "IDX"]:
+        if col not in fut:
+            fut[col] = pd.NaT
     fut = fut[fut["commodity"].isin(comms or [])].copy()
     fut["w0"] = fut[["FND", "LTD", "LND"]].min(axis=1)
     fut["w1"] = fut[["FND", "LTD", "LND"]].max(axis=1)
     fut = fut[(fut["w1"] >= win0) & (fut["w0"] <= win1)]
     fut = fut.assign(o=fut["commodity"].map(order)).sort_values(["o", "LTD"]).reset_index(drop=True)
-    opt = load_table("options")
+    opt = load_table("options", data_v)
     opt = opt[opt["commodity"].isin(comms or []) & opt["LTD"].between(win0, win1)]
 
     st.markdown(legend_html(), unsafe_allow_html=True)
