@@ -28,7 +28,7 @@ from typing import Callable, Dict, List, Optional
 
 import pandas as pd
 from pandas.tseries.holiday import (
-    AbstractHolidayCalendar, Holiday, nearest_workday, sunday_to_monday,
+    AbstractHolidayCalendar, Holiday, nearest_workday, sunday_to_monday, next_monday,
     USMartinLutherKingJr, USPresidentsDay, GoodFriday, EasterMonday,
     USMemorialDay, USLaborDay, USThanksgivingDay,
 )
@@ -96,9 +96,8 @@ def uk_holiday_list(start_year: int = 2004, end_year: int = 2040) -> list:
     """(date, name) for every ICE Futures Europe softs closure."""
     out = []
     for y in range(start_year, end_year + 1):
-        nyd = sunday_to_monday(pd.Timestamp(y, 1, 1))
-        if nyd.dayofweek < 5:
-            out.append((nyd, "New Year's Day"))
+        # Weekend New Year -> following Monday (ICE schedule: Mon 3 Jan 2028 closed).
+        out.append((next_monday(pd.Timestamp(y, 1, 1)), "New Year's Day"))
         e = pd.Timestamp(easter(y))
         out += [(e - pd.Timedelta(days=2), "Good Friday"), (e + pd.Timedelta(days=1), "Easter Monday"),
                 (_first_monday(y, 5), "Early May Bank Holiday"), (_last_monday(y, 5), "Spring Bank Holiday"),

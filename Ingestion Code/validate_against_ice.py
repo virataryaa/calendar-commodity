@@ -121,3 +121,12 @@ hol_bad = [f"{r.holiday} {r.date.date()}: ICE {r.softs}, ours {'closed' if r.dat
 print(f"{'NY holidays':<16}{len(ref_hol) - len(hol_bad):>8}  {len(hol_bad)}")
 for m in hol_bad:
     print(f"    {m}")
+
+# ICE Futures Europe trading schedule (July 2026 edition), IFEU Agricultural column.
+ref_eu = pd.read_csv(VALIDATE_DIR / "ICE Europe holidays 2026-2027.csv", parse_dates=["date"])
+eu = set(hol.loc[hol["exchange"] == "Europe", "date"])
+eu_bad = [f"{r.holiday} {r.date.date()}: ICE {r.softs}, ours {'closed' if r.date in eu else 'open'}"
+          for r in ref_eu.itertuples() if (r.date in eu) != (r.softs == "closed")]
+print(f"{'EU holidays':<16}{len(ref_eu) - len(eu_bad):>8}  {len(eu_bad)}")
+for m in eu_bad:
+    print(f"    {m}")
