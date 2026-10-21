@@ -42,7 +42,7 @@ st.markdown(
 [data-testid="stSidebar"] { background: #f0f2f8 !important; border-right: 1px solid #dfe3ee; }
 h1, h2, h3, h4, h5, h6 { color: #0a2463 !important; }
 body, .main { color: #1a1a2e; }
-.block-container { padding-top: 2.2rem; }
+.block-container { padding-top: 3rem; }
 
 /* Radio as pill/segmented control */
 div[role="radiogroup"] { background: #eef0f6; padding: 4px; border-radius: 999px; gap: 2px; display: inline-flex; flex-wrap: wrap; }
@@ -144,8 +144,11 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .ht tr.past td { color: #b4bccd; } .ht tr.past td.x { color: #dca5a5; }
 
 /* Pill tabs */
-.stTabs [data-baseweb="tab-list"] { background: #eef0f6; padding: 4px; border-radius: 999px; gap: 2px; width: fit-content; }
-.stTabs [data-baseweb="tab"] { border-radius: 999px; padding: 4px 18px; height: auto; background: transparent; }
+/* Streamlit's tab strip clips overflow, which cropped the top of the pill track */
+.stTabs, .stTabs > div, .stTabs [data-baseweb="tab-list"] { overflow: visible !important; }
+.stTabs [data-baseweb="tab-list"] { background: #eef0f6; padding: 4px; border-radius: 999px; gap: 2px; width: fit-content;
+                                    max-width: 100%; flex-wrap: wrap; margin: 8px 0 14px; }
+.stTabs [data-baseweb="tab"] { border-radius: 999px; padding: 6px 18px; height: auto; min-height: 0; background: transparent; }
 .stTabs [aria-selected="true"] { background: #0a2463 !important; color: #ffffff !important; }
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
 .sec { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin: 18px 0 0; }
@@ -320,6 +323,9 @@ with st.sidebar:
                          label_visibility="collapsed")
     st.markdown('<div class="sb-label">Months shown</div>', unsafe_allow_html=True)
     n_months = st.pills("Months shown", [2, 4, 6, 12], default=4, label_visibility="collapsed") or 4
+    st.markdown('<div class="sb-label">Chart horizon (months)</div>', unsafe_allow_html=True)
+    horizon = st.pills("Chart horizon", [3, 6, 12, 24], default=12, key="horizon",
+                       label_visibility="collapsed") or 12
 
 
 # ---------------------------------------------------------------------------------------------
@@ -369,11 +375,9 @@ def fmt(d) -> str:
     return pd.Timestamp(d).strftime("%a %d %b %Y")
 
 
-tab_cal, tab_tl = st.tabs(["Calendar", "Timeline"])
+tab_cal, tab_gantt, tab_roll, tab_heat, tab_hol = st.tabs(
+    ["Calendar", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays"])
 
-# ---------------------------------------------------------------------------------------------
-# Calendar tab: month grid + NY vs Europe holiday table
-# ---------------------------------------------------------------------------------------------
 with tab_cal:
     st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
     st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #c94a4a"></i>'
@@ -384,53 +388,43 @@ with tab_cal:
         cards.append(month_card(m.year, m.month, ev, hol, today, details))
     st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
 
-    if show_hol and exsel:
-        yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())],
-                      default=start.year, label_visibility="collapsed") or start.year
-        st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
-                    '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
-                    unsafe_allow_html=True)
-        hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
-        rows = ""
-        for d, g in hy.groupby("date"):
-            closed = set(g["exchange"])
-            cls = ' class="past"' if d.date() < today else ""
-            rows += (f'<tr{cls}><td>{" / ".join(dict.fromkeys(g["holiday"]))}</td><td>{d:%a %d %b}</td>'
-                     + "".join(f'<td class="{"x" if e in closed else "o"}">{"Closed" if e in closed else "Open"}</td>'
-                               for e in exsel) + "</tr>")
-        head = "".join(f"<th>{e}</th>" for e in exsel)
-        st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
-                    unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------------------
-# Timeline tab: contract Gantt, roll-window strip, weekly event heatmap
+# shared data for the chart tabs (window = sidebar start month + chart horizon)
 # ---------------------------------------------------------------------------------------------
-with tab_tl:
-    horizon = st.pills("Horizon (months)", [3, 6, 12, 24], default=12, key="horizon") or 12
-    win0 = pd.Timestamp(start)
-    win1 = win0 + pd.DateOffset(months=horizon) - pd.Timedelta(days=1)
-    xrange = [win0 - pd.Timedelta(days=2), win1 + pd.Timedelta(days=2)]
-    order = {c: i for i, c in enumerate(COMMODITY_LABELS)}
+win0 = pd.Timestamp(start)
+win1 = win0 + pd.DateOffset(months=horizon) - pd.Timedelta(days=1)
+xrange = [win0 - pd.Timedelta(days=2), win1 + pd.Timedelta(days=2)]
+order = {c: i for i, c in enumerate(COMMODITY_LABELS)}
 
-    fut = load_table("futures", data_v)
-    for col in ["FTD", "FND", "LTD", "LND", "IDX"]:
-        if col not in fut:
-            fut[col] = pd.NaT
-    fut = fut[fut["commodity"].isin(comms or [])].copy()
-    fut["w0"] = fut[["FND", "LTD", "LND"]].min(axis=1)
-    fut["w1"] = fut[["FND", "LTD", "LND"]].max(axis=1)
-    fut = fut[(fut["w1"] >= win0) & (fut["w0"] <= win1)]
-    fut = fut.assign(o=fut["commodity"].map(order)).sort_values(["o", "LTD"]).reset_index(drop=True)
-    opt = load_table("options", data_v)
-    opt = opt[opt["commodity"].isin(comms or []) & opt["LTD"].between(win0, win1)]
+fut = load_table("futures", data_v)
+for col in ["FTD", "FND", "LTD", "LND", "IDX"]:
+    if col not in fut:
+        fut[col] = pd.NaT
+fut = fut[fut["commodity"].isin(comms or [])].copy()
+fut["w0"] = fut[["FND", "LTD", "LND"]].min(axis=1)
+fut["w1"] = fut[["FND", "LTD", "LND"]].max(axis=1)
+fut = fut[(fut["w1"] >= win0) & (fut["w0"] <= win1)]
+fut = fut.assign(o=fut["commodity"].map(order)).sort_values(["o", "LTD"]).reset_index(drop=True)
+opt = load_table("options", data_v)
+opt = opt[opt["commodity"].isin(comms or []) & opt["LTD"].between(win0, win1)]
+rows_c = [c for c in COMMODITY_LABELS if c in set(fut["commodity"])]
+yi = {c: i for i, c in enumerate(rows_c)}
+ex_of = {c: e for e, cs in EXCHANGES.items() for c in cs}
+ylab = {c: f"{c} · {COMMODITY_LABELS[c]}" for c in rows_c}
 
-    st.markdown(legend_html(), unsafe_allow_html=True)
+
+def has_data() -> bool:
     if fut.empty:
         st.info("No contract events in this window.")
-    else:
+    return not fut.empty
+
+
+with tab_gantt:
+    st.markdown(legend_html(), unsafe_allow_html=True)
+    if has_data():
         # 1. Contract Gantt ----------------------------------------------------------------------
-        st.markdown('<div class="sec">Contract Gantt</div>'
-                    '<div class="card-desc">Grey = trading, navy = notice / delivery window.</div>',
+        st.markdown('<div class="card-desc">Grey = trading, navy = notice / delivery window.</div>',
                     unsafe_allow_html=True)
         labels = fut["contract"].tolist()
         fig = go.Figure()
@@ -468,9 +462,10 @@ with tab_tl:
         fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed", tickfont=dict(size=10))
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
+with tab_roll:
+    if has_data():
         # 2. Roll windows -------------------------------------------------------------------------
-        st.markdown('<div class="sec">Roll Windows</div>'
-                    '<div class="card-desc">Notice window per contract, with index roll, option expiry and holidays.</div>',
+        st.markdown('<div class="card-desc">Notice window per contract, with index roll, option expiry and holidays.</div>',
                     unsafe_allow_html=True)
         st.markdown(
             '<div class="lgd">'
@@ -479,9 +474,6 @@ with tab_tl:
             '<span style="color:#0f92a8">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
             '<span><i style="background:#e8b4b4;width:2px;height:12px;border-radius:0"></i>Exchange holiday</span>'
             '</div>', unsafe_allow_html=True)
-        rows_c = [c for c in COMMODITY_LABELS if c in set(fut["commodity"])]
-        yi = {c: i for i, c in enumerate(rows_c)}
-        ex_of = {c: e for e, cs in EXCHANGES.items() for c in cs}
         span0, span1 = xrange
         fig2 = go.Figure()
 
@@ -546,10 +538,10 @@ with tab_tl:
                                     for c in rows_c], tickfont=dict(size=11))
         st.plotly_chart(fig2, width="stretch", config={"displayModeBar": False})
 
+with tab_heat:
+    if has_data():
         # 3. Weekly event heatmap ----------------------------------------------------------------
-        st.markdown('<div class="sec">Event Heatmap</div>'
-                    '<div class="card-desc">Events per week; darker = busier.</div>', unsafe_allow_html=True)
-        ylab = {c: f"{c} · {COMMODITY_LABELS[c]}" for c in rows_c}
+        st.markdown('<div class="card-desc">Events per week; darker = busier.</div>', unsafe_allow_html=True)
         e = ev[ev["date"].between(win0, win1)].copy()
         e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
         weeks = pd.date_range(win0 - pd.Timedelta(days=win0.weekday()), win1, freq="7D")
@@ -574,3 +566,24 @@ with tab_tl:
         fig3.update_xaxes(range=xrange, showgrid=False)
         fig3.update_yaxes(autorange="reversed")
         st.plotly_chart(fig3, width="stretch", config={"displayModeBar": False})
+
+with tab_hol:
+    if not exsel:
+        st.info("Pick an exchange in the sidebar.")
+    else:
+        yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())],
+                      default=start.year, label_visibility="collapsed") or start.year
+        st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
+                    '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
+                    unsafe_allow_html=True)
+        hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
+        rows = ""
+        for d, g in hy.groupby("date"):
+            closed = set(g["exchange"])
+            cls = ' class="past"' if d.date() < today else ""
+            rows += (f'<tr{cls}><td>{" / ".join(dict.fromkeys(g["holiday"]))}</td><td>{d:%a %d %b}</td>'
+                     + "".join(f'<td class="{"x" if e in closed else "o"}">{"Closed" if e in closed else "Open"}</td>'
+                               for e in exsel) + "</tr>")
+        head = "".join(f"<th>{e}</th>" for e in exsel)
+        st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
+                    unsafe_allow_html=True)
