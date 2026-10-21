@@ -71,9 +71,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* Month grid */
-.mg-wrap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; font-family: 'Inter', sans-serif; }
-@media (max-width: 1200px) { .mg-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px)  { .mg-wrap { grid-template-columns: minmax(0, 1fr); } }
+.mg-wrap { display: flex; flex-direction: column; gap: 18px; font-family: 'Inter', sans-serif; }
 .mg { background: #ffffff; border: 1px solid #e3e7f0; border-radius: 14px; box-shadow: 0 1px 3px rgba(10,36,99,0.06); overflow: hidden; }
 .mg.cur { border-color: #0a2463; box-shadow: 0 2px 10px rgba(10,36,99,0.12); }
 .mg-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 10px; border-bottom: 1px solid #eef0f6; }
@@ -83,17 +81,18 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .mg-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .mg-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8a94a8; font-weight: 600;
           padding: 6px 8px 5px; background: #f6f7fb; border-bottom: 1px solid #eef0f6; }
-.mg-day { min-height: 74px; padding: 5px 5px 6px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; }
+.mg-day { min-height: 64px; padding: 5px 5px 6px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; }
 .mg-day:nth-child(5n) { border-right: none; }
 .mg-day .n { font-size: 11px; font-weight: 600; color: #1a1a2e; margin: 0 0 4px 2px; }
+.mg-chips { display: flex; flex-wrap: wrap; gap: 3px 4px; }
 .mg-day.out { background: #fbfbfd; }
 .mg-day.out .n { color: #c9cfdc; font-weight: 500; }
 .mg-day.past .n { color: #a3abbd; }
 .mg-day.past .chip { opacity: .45; }
 .mg-day.today { background: #f3f6fd; }
 .mg-day.today .n { display: inline-block; background: #0a2463; color: #ffffff; border-radius: 999px; padding: 0 7px; }
-.chip { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 10.5px; line-height: 1.3;
-        padding: 2px 6px 2px 5px; margin-bottom: 3px; border-radius: 5px; border-left: 3px solid; white-space: nowrap; overflow: hidden; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; line-height: 1.3;
+        padding: 2px 7px 2px 5px; border-radius: 5px; border-left: 3px solid; white-space: nowrap; overflow: hidden; }
 .chip .c { font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; }
 .chip .t { font-size: 9px; font-weight: 700; letter-spacing: .04em; }
 .chip.FND { background: #e8f5ef; border-color: #1f9d6f; } .chip.FND .t { color: #1f9d6f; }
@@ -158,7 +157,7 @@ def month_card(year: int, month: int, ev: pd.DataFrame, today: date) -> str:
                     tip = f"{COMMODITY_LABELS[r.commodity]} · {r.code} · {EVENTS[r.event][1]} · {d:%a %d %b %Y}"
                     chips += (f'<div class="chip {r.event}" title="{tip}"><span class="c">{r.code}</span>'
                               f'<span class="t">{EVENTS[r.event][0]}</span></div>')
-            cells.append(f'<div class="{" ".join(cls)}"><div class="n">{d.day}</div>{chips}</div>')
+            cells.append(f'<div class="{" ".join(cls)}"><div class="n">{d.day}</div><div class="mg-chips">{chips}</div></div>')
     cur = " cur" if (year, month) == (today.year, today.month) else ""
     return (f'<div class="mg{cur}"><div class="mg-head"><div class="mg-name">{calendar.month_name[month]}'
             f'<small>{year}</small></div><div class="mg-count">{n_events} events</div></div>'
@@ -188,7 +187,7 @@ with st.sidebar:
     start = st.selectbox("Start month", months, index=12, format_func=lambda m: m.strftime("%B %Y"),
                          label_visibility="collapsed")
     st.markdown('<div class="sb-label">Months shown</div>', unsafe_allow_html=True)
-    n_months = st.radio("Months shown", [3, 6, 12], horizontal=True, label_visibility="collapsed")
+    n_months = st.pills("Months shown", [3, 6, 12], default=3, label_visibility="collapsed") or 3
 
 # ---------------------------------------------------------------------------------------------
 # month grid
