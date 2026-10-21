@@ -189,7 +189,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .pop .pf { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(0,0,0,.08); color: #86868b; }
 .chip.FND { border-color: #bfe3d3; } .chip.FND .t { background: #1f9d6f; }
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
-.chip.LND { border-color: #b3dbe4; } .chip.LND .t { background: #0f92a8; }
+.chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
 .chip.OPT { border-color: #ecc4c4; } .chip.OPT .t { background: #c94a4a; }
 .chip.IDX { border-color: #d3caf0; } .chip.IDX .t { background: #6d4fc2; }
 
@@ -422,8 +422,7 @@ details = load_details(data_v)
 today = date.today()
 
 with st.sidebar:
-    st.markdown('<div class="sb-title">Commodity Calendar</div>'
-                '<div class="sb-caption">ICE softs expiries, index rolls and exchange holidays.</div>',
+    st.markdown('<div class="sb-title" style="margin-bottom:10px">Commodity Calendar</div>',
                 unsafe_allow_html=True)
 
     # Markets: nothing selected = all; picking one or more highlights and filters to them
@@ -467,7 +466,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------------------------
 # main: Calendar | Timeline
 # ---------------------------------------------------------------------------------------------
-EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#0f92a8", "OPT": "#c94a4a", "IDX": "#6d4fc2"}
+EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#c94a4a", "OPT": "#c94a4a", "IDX": "#6d4fc2"}   # LND and options share red; shape (square vs triangle) tells them apart
 EV_GLYPH = {"FND": "●", "LTD": "◆", "LND": "■", "OPT": "▲", "IDX": "▮"}   # same marks as the charts
 
 
@@ -525,8 +524,8 @@ def rel_day(d) -> str:
 def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
     """Luxury hover card: navy code + muted market, gold subtitle, dotted key/value lines, muted footer."""
     ex = "ICE US" if c in EXCHANGES["New York"] else "ICE Europe"
-    inv = {v: e for e, v in EV_COLOR.items()}
-    lines = "<br>".join(f"<span style='color:{col}'>{EV_GLYPH.get(inv.get(col), '●')}</span>  <span style='color:#8a94a8'>{k}</span>"
+    # each row's first item is an event key (FND/LTD/...) or a plain colour for non-event lines
+    lines = "<br>".join(f"<span style='color:{EV_COLOR.get(col, col)}'>{EV_GLYPH.get(col, '●')}</span>  <span style='color:#8a94a8'>{k}</span>"
                         f"   <b>{v}</b>" for col, k, v in rows)
     return (f"<b><span style='color:{NAVY};font-size:13px'>{code}</span></b>   "
             f"<span style='color:#a3abbd'>{SHORT_NAME[c]} · {ex}</span><br>"
@@ -547,6 +546,9 @@ def month_header(fig: go.Figure, x0, x1) -> None:
         if i % 2 == 0:
             fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
                           fillcolor="rgba(10,36,99,0.022)", line_width=0, layer="below")
+        if m > x0:   # subtle grey rule at each month boundary
+            fig.add_shape(type="line", xref="x", x0=m, x1=m, yref="paper", y0=0, y1=1,
+                          line=dict(color="rgba(90,102,136,0.16)", width=1), layer="below")
         if (b - a).days >= 8:
             fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19, showarrow=False, yanchor="middle",
                                text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
@@ -554,7 +556,7 @@ def month_header(fig: go.Figure, x0, x1) -> None:
                                font=dict(size=10.5, color=NAVY))
     fig.add_shape(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5, y1=5,
                   line=dict(color="rgba(176,141,87,0.55)", width=1))
-    fig.update_xaxes(showticklabels=False, ticks="")
+    fig.update_xaxes(showticklabels=False, ticks="", showgrid=False)
 
 
 def fmt(d) -> str:
@@ -756,7 +758,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                 line_width=0),
                     hovertemplate=[hover_card(k, c, "Index roll window · ±5 business days",
                                               [("#c9bdf0", "Window opens", fmt(a)),
-                                               (EV_COLOR["IDX"], "Roll day", fmt(d)),
+                                               ("IDX", "Roll day", fmt(d)),
                                                ("#c9bdf0", "Window closes", fmt(b))],
                                               f"Roll day {rel_day(d)}")
                                    for k, c, a, b, d in zip(ix["contract"], ix["commodity"], ix["IDX_START"],
@@ -771,10 +773,10 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                 orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut_y, width=0.4,
                 marker=dict(color="#c3cde4", cornerradius=5, line_width=0),
                 hovertemplate=[hover_card(r.contract, r.commodity, "Notice window",
-                                          [(EV_COLOR["FND"], "First notice", fmt(r.FND)),
-                                           (EV_COLOR["LTD"], "Last trading", fmt(r.LTD))]
-                                          + ([(EV_COLOR["LND"], "Last notice", fmt(r.LND))] if pd.notna(r.LND) else [])
-                                          + ([(EV_COLOR["IDX"], "Index roll", fmt(r.IDX))] if pd.notna(r.IDX) else []),
+                                          [("FND", "First notice", fmt(r.FND)),
+                                           ("LTD", "Last trading", fmt(r.LTD))]
+                                          + ([("LND", "Last notice", fmt(r.LND))] if pd.notna(r.LND) else [])
+                                          + ([("IDX", "Index roll", fmt(r.IDX))] if pd.notna(r.IDX) else []),
                                           f"{(r.w1 - r.w0).days + 1}-day window · last trading {rel_day(r.LTD)}")
                                for r in fut.itertuples()]))
 
@@ -794,9 +796,9 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                     textfont=dict(size=8.5, color="#a86565"),
                     marker=dict(symbol="triangle-up", size=9, color=OPT_RED, line=dict(color="#ffffff", width=1.5)),
                     hovertemplate=[hover_card(k, c, f"{t} option",
-                                              [(OPT_RED, "Expiry", fmt(d)),
+                                              [("OPT", "Expiry", fmt(d)),
                                                ("#c3cde4", "Underlying", u)]
-                                              + ([(EV_COLOR["FND"], "Underlying FND", fmt(fn))] if pd.notna(fn) else []),
+                                              + ([("FND", "Underlying FND", fmt(fn))] if pd.notna(fn) else []),
                                               f"Expires {rel_day(d)}")
                                    for k, c, t, u, d, fn in zip(o["option"], o["commodity"], o["type"],
                                                                 o["underlying_future"], o["LTD"], o["underlying_FND"])]))
@@ -809,7 +811,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                 fig.add_trace(go.Scatter(
                     x=s[k], y=s["contract"].map(pos) + dy, mode="markers",
                     marker=dict(symbol=EV_SYMBOL[k], size=size, color=EV_COLOR[k], line=dict(color="#ffffff", width=2)),
-                    hovertemplate=[hover_card(code, c, EVENTS[k][1], [(EV_COLOR[k], EVENTS[k][1], fmt(d))],
+                    hovertemplate=[hover_card(code, c, EVENTS[k][1], [(k, EVENTS[k][1], fmt(d))],
                                               rel_day(d).capitalize())
                                    for code, c, d in zip(s["contract"], s["commodity"], s[k])]))
 
