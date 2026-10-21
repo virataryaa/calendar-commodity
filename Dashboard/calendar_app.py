@@ -390,10 +390,37 @@ def style_fig(fig: go.Figure, height: int) -> go.Figure:
 
 
 def add_today(fig: go.Figure) -> None:
+    """Thin navy rule with a dated pill under the plot (the month header owns the top edge)."""
     t = pd.Timestamp(today)
-    fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1, line=dict(color=NAVY, width=1.5, dash="dot"))
-    fig.add_annotation(x=t, yref="paper", y=1, text=f"Today · {today:%a %d %b %Y}", showarrow=False, yanchor="bottom",
-                       font=dict(size=10, color=NAVY))
+    fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1, line=dict(color="rgba(10,36,99,0.55)", width=1.2))
+    fig.add_annotation(x=t, yref="paper", y=0, yshift=-4, text=f" Today · {today:%a %d %b %Y} ", showarrow=False,
+                       yanchor="top", bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
+
+
+GOLD = "#b08d57"
+
+
+def month_header(fig: go.Figure, x0, x1) -> None:
+    """Month strip across the top: alternating navy-tint blocks, centred labels (year in muted gold),
+    a gold hairline beneath, and a faint matching stripe down every other month of the plot."""
+    x0, x1 = pd.Timestamp(x0), pd.Timestamp(x1)
+    months = pd.date_range(x0.replace(day=1), x1, freq="MS")
+    dense = len(months) > 14   # long horizons: year only on January and the first month
+    for i, m in enumerate(months):
+        a, b = max(m, x0), min(m + pd.offsets.MonthBegin(1), x1)
+        fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7, y1=31,
+                      fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above")
+        if i % 2 == 0:
+            fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
+                          fillcolor="rgba(10,36,99,0.022)", line_width=0, layer="below")
+        if (b - a).days >= 8:
+            fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19, showarrow=False, yanchor="middle",
+                               text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
+                                                        else f" <span style='color:{GOLD}'>’{m:%y}</span>"),
+                               font=dict(size=10.5, color=NAVY))
+    fig.add_shape(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5, y1=5,
+                  line=dict(color="rgba(176,141,87,0.55)", width=1))
+    fig.update_xaxes(showticklabels=False, ticks="")
 
 
 def fmt(d) -> str:
@@ -638,6 +665,7 @@ with tab_gantt:
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
         fig.update_yaxes(tickmode="array", tickvals=list(range(len(labels))), ticktext=ticks,
                          range=[len(labels) - 0.5, -0.5], tickfont=dict(size=11))
+        month_header(fig, *xrange)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 with tab_roll:
@@ -716,12 +744,13 @@ with tab_roll:
                                for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
 
         add_today(fig2)
-        style_fig(fig2, 62 * len(rows_c) + 50)
-        fig2.update_layout(bargap=0, barmode="overlay")
+        style_fig(fig2, 62 * len(rows_c) + 84)
+        fig2.update_layout(bargap=0, barmode="overlay", margin=dict(l=8, r=12, t=40, b=34))
         fig2.update_xaxes(range=xrange, type="date", showline=False)
         fig2.update_yaxes(tickvals=list(yi.values()), range=[len(rows_c) - 0.5, -0.5],
                           ticktext=[f"<b>{c}</b>  <span style='color:#8a94a8'>{COMMODITY_LABELS[c]}</span>"
                                     for c in rows_c], tickfont=dict(size=11))
+        month_header(fig2, *xrange)
         st.plotly_chart(fig2, width="stretch", config={"displayModeBar": False})
 
 with tab_heat:
@@ -766,13 +795,14 @@ with tab_heat:
             textfont=dict(size=10.5), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
             colorscale=[[0, "#f4f6fb"], [0.001, "#c9d3ea"], [1, NAVY]], zmin=0, xgap=3, ygap=3, showscale=False))
         add_today(fig3)
-        style_fig(fig3, 46 * len(rows_c) + 70)
-        fig3.update_layout(hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.18)", align="left",
+        style_fig(fig3, 46 * len(rows_c) + 100)
+        fig3.update_layout(margin=dict(l=8, r=12, t=40, b=34), hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.18)", align="left",
                                            font=dict(family="Inter, sans-serif", size=11.5, color="#1d1d1f")))
         fig3.update_xaxes(range=xrange, showgrid=False)
         fig3.update_yaxes(tickmode="array", tickvals=list(range(len(rows_c))), range=[len(rows_c) - 0.5, -0.5],
                           ticktext=[f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
                                     f"<span style='color:#a3abbd'>{c}</span>" for c in rows_c], tickfont=dict(size=11))
+        month_header(fig3, *xrange)
         st.plotly_chart(fig3, width="stretch", config={"displayModeBar": False})
 
 with tab_hol:
