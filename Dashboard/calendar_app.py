@@ -574,13 +574,14 @@ with tab_gantt:
         span0, span1 = xrange
         fig = go.Figure()
 
-        # soft group bands, a hairline between groups, and the commodity name centred on its block
+        # white background; between commodities a fine dotted gold rule, broken by a small diamond at centre
         for n, ((a, b), c) in enumerate(zip(groups, fut["commodity"].unique())):
-            fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=b + 0.5, layer="below",
-                          fillcolor="#fafbfd" if n % 2 == 0 else "#ffffff", line_width=0)
             if n:
-                fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=a - 0.5,
-                              line=dict(color="rgba(10,36,99,0.08)", width=1))
+                for x0_, x1_ in [(0, 0.485), (0.515, 1)]:
+                    fig.add_shape(type="line", xref="paper", x0=x0_, x1=x1_, y0=a - 0.5, y1=a - 0.5,
+                                  line=dict(color="rgba(176,141,87,0.45)", width=1, dash="dot"))
+                fig.add_annotation(xref="paper", x=0.5, y=a - 0.5, text="◆", showarrow=False,
+                                   font=dict(size=7, color="rgba(176,141,87,0.75)"), yanchor="middle")
             fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-62, y=(a + b) / 2, yanchor="middle",
                                showarrow=False, align="right",
                                text=f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b><br>"
