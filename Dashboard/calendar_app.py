@@ -426,7 +426,16 @@ with tab_gantt:
         # 1. Contract Gantt ----------------------------------------------------------------------
         st.markdown('<div class="card-desc">Grey = trading, navy = notice / delivery window.</div>',
                     unsafe_allow_html=True)
-        labels = fut["contract"].tolist()
+        # one block per commodity: a bold header row, then that commodity's contracts
+        labels, ticks, groups = [], [], []
+        for c, g in fut.groupby("commodity", sort=False):
+            first = len(labels)
+            labels.append(f"#{c}")
+            ticks.append(f"<b>{COMMODITY_LABELS[c]}</b> <span style='color:#8a94a8'>{c}</span>")
+            for k in g["contract"]:
+                labels.append(k)
+                ticks.append(f"<span style='color:#5a6688'>{k[len(c):]}</span>")
+            groups.append((first, len(labels) - 1))
         fig = go.Figure()
         life_x, life_y, win_x, win_y = [], [], [], []
         for r in fut.itertuples():
@@ -453,13 +462,20 @@ with tab_gantt:
                 marker=dict(symbol="triangle-up", size=9, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
                 hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u}<br>{fmt(d)}<extra></extra>"
                                for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
-        for i in fut.index[fut["commodity"].ne(fut["commodity"].shift())][1:]:
-            fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=i - 0.5, y1=i - 0.5,
-                          line=dict(color="rgba(10,36,99,0.12)", width=1))
+        # header rows carry no data, so an invisible point keeps each one on the axis
+        heads = [l for l in labels if l.startswith("#")]
+        fig.add_trace(go.Scatter(x=[xrange[0]] * len(heads), y=heads, mode="markers",
+                                 marker=dict(opacity=0), hoverinfo="skip"))
+        for n, (a, b) in enumerate(groups):
+            fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=b + 0.5, layer="below",
+                          fillcolor="#f6f7fb" if n % 2 == 0 else "#ffffff", line_width=0)
+            fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=a - 0.5,
+                          line=dict(color="rgba(10,36,99,0.18)", width=1))
         add_today(fig)
         style_fig(fig, 26 * len(labels) + 70)
         fig.update_xaxes(range=xrange)
-        fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed", tickfont=dict(size=10))
+        fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed",
+                         tickmode="array", tickvals=labels, ticktext=ticks, tickfont=dict(size=10.5))
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 with tab_roll:
