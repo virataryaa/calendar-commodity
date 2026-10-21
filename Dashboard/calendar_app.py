@@ -535,11 +535,12 @@ with tab_gantt:
         t = pd.Timestamp(today)
         fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1,
                       line=dict(color="rgba(10,36,99,0.55)", width=1.2))
-        fig.add_annotation(x=t, yref="paper", y=1, text=f" Today · {today:%a %d %b %Y} ", showarrow=False, yanchor="bottom",
+        # month labels run along the top, so the Today pill goes under the plot instead
+        fig.add_annotation(x=t, yref="paper", y=0, text=f" Today · {today:%a %d %b %Y} ", showarrow=False, yanchor="top", yshift=-4,
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
         style_fig(fig, 30 * len(labels) + 70)
-        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=8, r=12, t=40, b=8))
+        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=8, r=12, t=40, b=34))
         fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
         fig.update_yaxes(tickmode="array", tickvals=list(range(len(labels))), ticktext=ticks,
