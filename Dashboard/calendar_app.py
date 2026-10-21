@@ -294,7 +294,7 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
 # ---------------------------------------------------------------------------------------------
 # Cache key = newest parquet mtime, so a data push is picked up immediately instead of
 # serving a cached frame from before the push (cache only resets when code changes).
-data_v = max(p.stat().st_mtime for p in DB_DIR.glob("*.parquet"))
+data_v = hash(tuple(sorted((p.name, p.stat().st_size, p.stat().st_mtime) for p in DB_DIR.glob("*.parquet"))))
 events = load_events(data_v)
 holidays = load_holidays(data_v)
 details = load_details(data_v)
@@ -342,7 +342,7 @@ hol = holidays[holidays["exchange"].isin(exsel)] if show_hol else holidays.iloc[
 def legend_html(extra: str = "") -> str:
     return ('<div class="lgd">'
             + "".join(f'<span><i style="background:{EV_COLOR[k]}"></i>{EVENTS[k][1]}</span>' for k in EVENTS)
-            + extra + '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>')
+            + extra + f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>')
 
 
 @st.cache_data(ttl=600)
@@ -367,7 +367,7 @@ def style_fig(fig: go.Figure, height: int) -> go.Figure:
 def add_today(fig: go.Figure) -> None:
     t = pd.Timestamp(today)
     fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1, line=dict(color=NAVY, width=1.5, dash="dot"))
-    fig.add_annotation(x=t, yref="paper", y=1, text="Today", showarrow=False, yanchor="bottom",
+    fig.add_annotation(x=t, yref="paper", y=1, text=f"Today · {today:%a %d %b %Y}", showarrow=False, yanchor="bottom",
                        font=dict(size=10, color=NAVY))
 
 
@@ -401,6 +401,12 @@ fut = load_table("futures", data_v)
 for col in ["FTD", "FND", "LTD", "LND", "IDX", "IDX_START", "IDX_END"]:
     if col not in fut:
         fut[col] = pd.NaT
+# older data files have the roll day but not its window: rebuild IR +/- 5 bd on the NY calendar
+if fut["IDX_START"].isna().all() and fut["IDX"].notna().any():
+    _ny = pd.offsets.CustomBusinessDay(holidays=holidays.loc[holidays["exchange"] == "New York", "date"].tolist())
+    _m = fut["IDX"].notna()
+    fut.loc[_m, "IDX_START"] = fut.loc[_m, "IDX"].apply(lambda d: d - 5 * _ny)
+    fut.loc[_m, "IDX_END"] = fut.loc[_m, "IDX"].apply(lambda d: d + 5 * _ny)
 fut = fut[fut["commodity"].isin(comms or [])].copy()
 fut["w0"] = fut[["FND", "LTD", "LND"]].min(axis=1)
 fut["w1"] = fut[["FND", "LTD", "LND"]].max(axis=1)
@@ -431,7 +437,7 @@ with tab_gantt:
         '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
         'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
         f'<span><i style="background:{EV_COLOR["IDX"]};width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
-        '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>',
+        f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
         unsafe_allow_html=True)
     if has_data():
         # rows: a header per commodity, then its contracts (numeric y so marks can be placed exactly)
@@ -473,8 +479,8 @@ with tab_gantt:
             fig.add_trace(go.Bar(
                 orientation="h", base=ix["IDX_START"], y=iy, width=0.62,
                 x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
-                marker=dict(color="rgba(109,79,194,0.16)", cornerradius=5,
-                            line=dict(color="rgba(109,79,194,0.35)", width=1)),
+                marker=dict(color="rgba(109,79,194,0.22)", cornerradius=5,
+                            line=dict(color="rgba(109,79,194,0.55)", width=1)),
                 hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
                                f"Roll day <b>{fmt(d)}</b><extra></extra>"
                                for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
@@ -500,13 +506,13 @@ with tab_gantt:
                 hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u} · {fmt(d)}<extra></extra>"
                                for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
 
-        # notice-day markers with a white halo; LTD drawn last so it is never hidden by LND
-        for k, size in [("LND", 9), ("FND", 10), ("LTD", 12)]:
+        # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
+        for k, size, dy in [("FND", 10, 0), ("LND", 9, 0), ("LTD", 10, -0.34)]:
             if k not in (evsel or []):
                 continue
             s = fut.dropna(subset=[k])
             fig.add_trace(go.Scatter(
-                x=s[k], y=s["contract"].map(pos), mode="markers",
+                x=s[k], y=s["contract"].map(pos) + dy, mode="markers",
                 marker=dict(symbol=EV_SYMBOL[k], size=size, color=EV_COLOR[k], line=dict(color="#ffffff", width=2)),
                 hovertemplate=[f"<b>{c}</b> · {EVENTS[k][1]}<br>{fmt(d)}<extra></extra>"
                                for c, d in zip(s["contract"], s[k])]))
@@ -515,7 +521,7 @@ with tab_gantt:
         t = pd.Timestamp(today)
         fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1,
                       line=dict(color="rgba(10,36,99,0.55)", width=1.2))
-        fig.add_annotation(x=t, yref="paper", y=1, text=" Today ", showarrow=False, yanchor="bottom",
+        fig.add_annotation(x=t, yref="paper", y=1, text=f" Today · {today:%a %d %b %Y} ", showarrow=False, yanchor="bottom",
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
         style_fig(fig, 30 * len(labels) + 70)
@@ -585,8 +591,8 @@ with tab_roll:
             fig2.add_trace(go.Bar(
                 orientation="h", base=ix["IDX_START"], y=ix["commodity"].map(yi), width=0.5,
                 x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
-                marker=dict(color="rgba(109,79,194,0.16)", cornerradius=5,
-                            line=dict(color="rgba(109,79,194,0.35)", width=1)),
+                marker=dict(color="rgba(109,79,194,0.22)", cornerradius=5,
+                            line=dict(color="rgba(109,79,194,0.55)", width=1)),
                 hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
                                f"Roll day <b>{fmt(d)}</b><extra></extra>"
                                for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
