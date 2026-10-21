@@ -150,17 +150,18 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .up { width: 100%; max-width: 880px; border-collapse: separate; border-spacing: 0; background: #ffffff;
       border: 1px solid #e8ebf2; border-radius: 14px; overflow: hidden; font-family: 'Inter', sans-serif; font-size: 12.5px;
       box-shadow: 0 1px 3px rgba(10,36,99,0.04); }
-.up th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
-         color: #a3abbd; background: #ffffff; padding: 11px 18px 9px; border-bottom: 1px solid #eef0f6; }
+.up th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+         color: #e6eaf5; background: #0a2463; padding: 12px 18px 11px; border-bottom: 2px solid #b08d57; }
+.up th:first-child { border-top-left-radius: 13px; } .up th:last-child { border-top-right-radius: 13px; }
 .up td { padding: 10px 18px; color: #1a1a2e; border-bottom: 1px solid #f4f5f9; vertical-align: middle; }
 .up tr:last-child td { border-bottom: none; }
 .up tr.wk td { background: #fafbfd; color: #0a2463; font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
                text-transform: uppercase; padding: 7px 18px; border-bottom: 1px solid #eef0f6; border-top: 1px solid #eef0f6; }
 .up tr.wk td span { color: #a3abbd; font-weight: 500; letter-spacing: .02em; text-transform: none; margin-left: 8px; }
-.up td.d { width: 92px; vertical-align: top; padding-top: 10px; border-right: 1px solid #f4f5f9; }
+.up td.d { width: 108px; white-space: nowrap; vertical-align: top; padding-top: 10px; border-right: 1px solid #f4f5f9; }
 .up td.d .dn { font-family: 'Fraunces', Georgia, serif; font-size: 1.35rem; font-weight: 600; color: #0a2463; line-height: 1; }
 .up td.d .dw { color: #8a94a8; font-size: 10.5px; margin-top: 3px; }
-.up td.d .rel { display: inline-block; margin-top: 5px; font-size: 10px; color: #5a6688; background: #f1f3f8;
+.up td.d .rel { display: inline-block; white-space: nowrap; margin-top: 5px; font-size: 10px; color: #5a6688; background: #f1f3f8;
                 border-radius: 999px; padding: 1px 8px; }
 .up td.d.now .rel { background: #0a2463; color: #ffffff; }
 .up td.k { font-weight: 600; color: #3a4466; letter-spacing: .02em; }
