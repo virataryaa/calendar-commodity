@@ -72,9 +72,12 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .lgd span { display: inline-flex; align-items: center; gap: 6px; }
 .lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
-/* Month grid */
-.mg-wrap { display: flex; flex-direction: column; gap: 20px; max-width: 1180px; font-family: 'Inter', sans-serif; }
+/* Month grid: two months side by side, one column on narrow screens */
+.mg-wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 1500px; font-family: 'Inter', sans-serif; }
+@media (max-width: 1100px) { .mg-wrap { grid-template-columns: minmax(0, 1fr); } }
 .mg { background: #ffffff; border: 1px solid #e3e7f0; border-radius: 14px; box-shadow: 0 1px 3px rgba(10,36,99,0.06); overflow: hidden; }
+/* a card clips its corners; while a chip inside it is hovered, stop clipping so the popover can spill out (SnD pattern) */
+.mg:has(.chip:hover), .mg:has(.hol:hover) { overflow: visible; position: relative; z-index: 50; }
 .mg.cur { border-color: #0a2463; box-shadow: 0 2px 10px rgba(10,36,99,0.12); }
 .mg-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 10px; border-bottom: 1px solid #eef0f6; }
 .mg-name { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 600; color: #0a2463; }
@@ -84,7 +87,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .mg-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8a94a8; font-weight: 600;
           padding: 6px 8px 5px; background: #f6f7fb; border-bottom: 1px solid #eef0f6; }
 .mg-dow.we { color: #b4bccd; background: #f1f3f8; }
-.mg-day { min-height: 92px; padding: 6px 6px 7px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; }
+.mg-day { min-height: 78px; padding: 5px 4px 6px; border-right: 1px solid #f0f2f7; border-bottom: 1px solid #f0f2f7; min-width: 0; }
 .mg-day:nth-child(7n) { border-right: none; }
 .mg-day.we { background: #f7f8fb; }
 .mg-day .n { font-size: 11px; font-weight: 600; color: #1a1a2e; margin: 0 0 5px 2px; }
@@ -93,15 +96,30 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .mg-day.out { background: #fbfbfd; }
 .mg-day.out .n { color: #d3d8e3; font-weight: 500; }
 .mg-day.past .n { color: #a3abbd; }
-.mg-day.past .chip { opacity: .4; filter: saturate(.6); }
+.mg-day.past .chip > .c, .mg-day.past .chip > .t, .mg-day.past .hol > b, .mg-day.past .hol > .hn { opacity: .4; filter: saturate(.6); }
 .mg-day.today { background: #f3f6fd; box-shadow: inset 0 0 0 1.5px #0a2463; }
 .mg-day.today .n { display: inline-block; background: #0a2463; color: #ffffff; border-radius: 999px; padding: 0 7px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 10.5px; line-height: 1;
-        padding: 3px 3px 3px 8px; border-radius: 999px; background: #ffffff; border: 1px solid;
-        box-shadow: 0 1px 2px rgba(10,36,99,0.06); white-space: nowrap; cursor: default; transition: transform .12s, box-shadow .12s; }
-.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(10,36,99,0.14); }
+.chip { position: relative; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font-size: 9.5px; line-height: 1;
+        padding: 2px 2px 2px 6px; border-radius: 999px; background: #ffffff; border: 1px solid;
+        box-shadow: 0 1px 2px rgba(10,36,99,0.06); white-space: nowrap; cursor: default; transition: box-shadow .12s; }
+.chip:hover { box-shadow: 0 0 0 1px #9db3e6, 0 3px 8px rgba(10,36,99,0.14); }
 .chip .c { font-weight: 600; color: #1a1a2e; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; }
-.chip .t { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; color: #ffffff; padding: 3px 6px; border-radius: 999px; }
+.chip .t { font-size: 7.5px; font-weight: 700; letter-spacing: .06em; color: #ffffff; padding: 2px 5px; border-radius: 999px; }
+
+/* Hover popover (same look as the SnD table's revision popover) */
+.pop { display: none; position: absolute; z-index: 9999; top: 100%; left: 0; margin-top: 5px; min-width: 190px;
+       background: #ffffff; color: #1d1d1f; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: 7px 10px;
+       box-shadow: 0 6px 20px rgba(0,0,0,.18); font-size: 10.5px; white-space: nowrap; text-align: left; line-height: 1.35; }
+.mg-day.r .pop { left: auto; right: 0; }
+.chip:hover .pop, .hol:hover .pop { display: block; }
+.pop .ph { font-weight: 700; color: #0a2463; font-size: 11.5px; }
+.pop .ps { color: #86868b; margin-bottom: 4px; }
+.pop .row { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.pop .row + .row { border-top: 1px solid rgba(0,0,0,.08); }
+.pop .row .k { color: #86868b; }
+.pop .row.cur { font-weight: 700; color: #0a2463; }
+.pop .row.cur .k { color: #0a2463; }
+.pop .pf { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(0,0,0,.08); color: #86868b; }
 .chip.FND { border-color: #bfe3d3; } .chip.FND .t { background: #1f9d6f; }
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
 .chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
@@ -109,8 +127,9 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 
 /* Exchange holidays */
 .mg-day.closed { background: repeating-linear-gradient(135deg, #fbf3f3, #fbf3f3 6px, #f7eaea 6px, #f7eaea 12px); }
-.hol { font-size: 9.5px; font-weight: 600; color: #8a2f2f; background: #f6dede; border-radius: 6px;
-       padding: 2px 6px; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hol { position: relative; max-width: 100%; box-sizing: border-box; font-size: 9px; font-weight: 600; color: #8a2f2f;
+       background: #f6dede; border-radius: 6px; padding: 2px 5px; margin: 0 0 4px; white-space: nowrap; cursor: default; }
+.hol .hn { display: inline-block; max-width: calc(100% - 26px); overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .hol b { color: #ffffff; background: #c94a4a; border-radius: 4px; padding: 0 4px; margin-right: 4px; font-size: 8.5px; }
 
 /* Holiday table */
@@ -149,22 +168,74 @@ def load_events() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600)
+def load_details() -> dict:
+    """(code, 'fut'|'opt') -> that contract's full date set, for the hover popover."""
+    det = {}
+    for c in COMMODITY_LABELS:
+        fut = DB_DIR / f"{c.lower()}_futures_calendar.parquet"
+        opt = DB_DIR / f"{c.lower()}_options_calendar.parquet"
+        if fut.exists():
+            for r in pd.read_parquet(fut).to_dict("records"):
+                det[(r["contract"], "fut")] = r
+        if opt.exists():
+            for r in pd.read_parquet(opt).to_dict("records"):
+                det[(r["option"], "opt")] = r
+    return det
+
+
+def _d(x) -> str:
+    return pd.Timestamp(x).strftime("%a %d %b %Y") if pd.notna(x) else "—"
+
+
+def _row(k: str, v: str, cur: bool = False) -> str:
+    return f'<div class="row{" cur" if cur else ""}"><span class="k">{k}</span><span>{v}</span></div>'
+
+
+def _when(d: date, today: date) -> str:
+    n = (d - today).days
+    return "today" if n == 0 else (f"in {n} day{'s' * (n != 1)}" if n > 0 else f"{-n} day{'s' * (n != -1)} ago")
+
+
+def chip_pop(r, d: date, today: date, det: dict) -> str:
+    ex = next(e for e, cs in EXCHANGES.items() if r.commodity in cs)
+    head = (f'<div class="ph">{r.code} · {EVENTS[r.event][1]}</div>'
+            f'<div class="ps">{COMMODITY_LABELS[r.commodity]} · ICE {"US" if ex == "New York" else "Europe"}</div>')
+    if r.event == "OPT":
+        o = det.get((r.code, "opt"), {})
+        rows = (_row("Type", o.get("type", "—")) + _row("Underlying", o.get("underlying_future", "—"))
+                + _row("First trading", _d(o.get("FTD"))) + _row("Expiry (LTD)", _d(o.get("LTD")), True)
+                + _row("Underlying FND", _d(o.get("underlying_FND"))))
+        if o.get("ltd_adjusted"):
+            rows += _row("Note", "LTD pulled in for 4-day FND gap")
+    else:
+        f = det.get((r.code, "fut"), {})
+        rows = "".join(_row(EVENTS.get(k, (k, "First Trading Day"))[1], _d(f.get(k)), k == r.event)
+                       for k in ["FTD", "FND", "LTD", "LND"])
+    return f'<div class="pop">{head}{rows}<div class="pf">{_when(d, today)}</div></div>'
+
+
+@st.cache_data(ttl=600)
 def load_holidays() -> pd.DataFrame:
     h = pd.read_parquet(DB_DIR / "holidays.parquet")
     h["date"] = pd.to_datetime(h["date"]).dt.normalize()
     return h
 
 
-def holiday_tags(g: pd.DataFrame) -> str:
+def holiday_tags(g: pd.DataFrame, d: date, today: date) -> str:
     """One tag per holiday name; exchanges sharing it are merged (e.g. NY+EU Christmas)."""
     tags = ""
     for name, gg in g.groupby("holiday", sort=False):
-        ex = "+".join(EX_SHORT[e] for e in sorted(gg["exchange"], key=list(EX_SHORT).index))
-        tags += f'<div class="hol" title="{ex} closed · {name}"><b>{ex}</b>{name}</div>'
+        closed = sorted(gg["exchange"], key=list(EXCHANGES).index)
+        ex = "+".join(EX_SHORT[e] for e in closed)
+        rows = "".join(_row(e, "Closed" if e in closed else "Open") for e in EXCHANGES)
+        rows += _row("Affects", ", ".join(c for e in closed for c in EXCHANGES[e]))
+        pop = (f'<div class="pop"><div class="ph">{name}</div><div class="ps">{_d(d)}</div>{rows}'
+               f'<div class="pf">{_when(d, today)}</div></div>')
+        tags += f'<div class="hol"><b>{ex}</b><span class="hn">{name}</span>{pop}</div>'
     return tags
 
 
-def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today: date) -> str:
+def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today: date, det: dict) -> str:
     """One month as an HTML card: Mon–Sun grid, each day listing holidays then event chips."""
     by_day = {d.date(): g for d, g in ev.groupby("date")}
     hol_by_day = {d.date(): g for d, g in hol.groupby("date")}
@@ -177,7 +248,7 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
         if all(d.month != month for d in days):
             continue
         for d in days:
-            cls = ["mg-day"] + (["we"] if d.weekday() >= 5 else [])
+            cls = ["mg-day"] + (["we"] if d.weekday() >= 5 else []) + (["r"] if d.weekday() >= 4 else [])
             if d.month != month:
                 cls.append("out")
                 cells.append(f'<div class="{" ".join(cls)}"><div class="n">{d.day}</div></div>')
@@ -190,15 +261,14 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
             hg = hol_by_day.get(d)
             if hg is not None and d.weekday() < 5:
                 cls.append("closed")
-                chips += holiday_tags(hg)
+                chips += holiday_tags(hg, d, today)
             g = by_day.get(d)
             if g is not None:
                 g = g.assign(o=g["event"].map(order)).sort_values(["o", "commodity", "code"])
                 n_events += len(g)
                 for r in g.itertuples():
-                    tip = f"{COMMODITY_LABELS[r.commodity]} · {r.code} · {EVENTS[r.event][1]} · {d:%a %d %b %Y}"
-                    chips += (f'<div class="chip {r.event}" title="{tip}"><span class="c">{r.code}</span>'
-                              f'<span class="t">{EVENTS[r.event][0]}</span></div>')
+                    chips += (f'<div class="chip {r.event}"><span class="c">{r.code}</span>'
+                              f'<span class="t">{EVENTS[r.event][0]}</span>{chip_pop(r, d, today, det)}</div>')
             cells.append(f'<div class="{" ".join(cls)}"><div class="n">{d.day}</div><div class="mg-chips">{chips}</div></div>')
     cur = " cur" if (year, month) == (today.year, today.month) else ""
     return (f'<div class="mg{cur}"><div class="mg-head"><div class="mg-name">{calendar.month_name[month]}'
@@ -211,6 +281,7 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
 # ---------------------------------------------------------------------------------------------
 events = load_events()
 holidays = load_holidays()
+details = load_details()
 today = date.today()
 
 with st.sidebar:
@@ -235,7 +306,7 @@ with st.sidebar:
     start = st.selectbox("Start month", months, index=12, format_func=lambda m: m.strftime("%B %Y"),
                          label_visibility="collapsed")
     st.markdown('<div class="sb-label">Months shown</div>', unsafe_allow_html=True)
-    n_months = st.pills("Months shown", [3, 6, 12], default=3, label_visibility="collapsed") or 3
+    n_months = st.pills("Months shown", [2, 4, 6, 12], default=4, label_visibility="collapsed") or 4
 
 # ---------------------------------------------------------------------------------------------
 # month grid
@@ -243,9 +314,7 @@ with st.sidebar:
 ev = events[events["commodity"].isin(comms or []) & events["event"].isin(evsel or [])]
 hol = holidays[holidays["exchange"].isin(exsel)] if show_hol else holidays.iloc[0:0]
 
-st.markdown('<div class="page-title">Month Grid</div>'
-            '<div class="card-desc">Weekends shaded. Hover a chip for the full contract and date.</div>',
-            unsafe_allow_html=True)
+st.markdown('<div class="page-title" style="margin-bottom:10px">Month Grid</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="lgd">'
     + "".join(f'<span><i style="background:{c}"></i>{EVENTS[k][1]}</span>'
@@ -258,7 +327,7 @@ st.markdown(
 cards = []
 for k in range(n_months):
     m = start + pd.DateOffset(months=k)
-    cards.append(month_card(m.year, m.month, ev, hol, today))
+    cards.append(month_card(m.year, m.month, ev, hol, today, details))
 st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------------------
