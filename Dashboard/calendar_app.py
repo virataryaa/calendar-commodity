@@ -112,7 +112,24 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .sb-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 600; color: #0a2463; margin-bottom: 2px; }
 .sb-caption { font-size: 11px; color: #7a86a8; margin-bottom: 16px; line-height: 1.4; }
 .sb-label { font-size: 11px; color: #7a86a8; text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px; }
-[data-testid="stSidebar"] [data-testid="stButtonGroup"] button { border-radius: 999px; font-size: 12px; }
+.sb-sec { font-size: 10.5px; font-weight: 700; color: #0a2463; text-transform: uppercase; letter-spacing: .11em;
+          margin: 16px 0 8px; padding-top: 14px; border-top: 1px solid #e0e4ee; }
+.sb-sec.first { border-top: none; padding-top: 0; margin-top: 4px; }
+.sb-sub { font-size: 10.5px; color: #9aa3b5; margin: 6px 0 3px; }
+.sb-status { font-size: 10.5px; color: #9aa3b5; line-height: 1.5; margin-top: 18px; padding-top: 12px; border-top: 1px solid #e0e4ee; }
+[data-testid="stSidebar"] [data-testid="stElementContainer"] { margin-bottom: -4px; }
+
+/* Pills / segmented controls: quiet when off, solid navy when picked (whole app) */
+button[kind="pills"], button[kind="segmented_control"] {
+    background: #ffffff !important; border: 1px solid #dfe3ee !important; border-radius: 999px !important;
+    min-height: 26px !important; padding: 1px 11px !important; }
+button[kind="pills"] p, button[kind="segmented_control"] p { color: #3a4466 !important; font-size: 11.5px !important; }
+button[kind="pills"]:hover, button[kind="segmented_control"]:hover { border-color: #9db3e6 !important; }
+button[kind="pillsActive"], button[kind="segmented_controlActive"] {
+    background: #0a2463 !important; border: 1px solid #0a2463 !important; border-radius: 999px !important;
+    min-height: 26px !important; padding: 1px 11px !important; }
+button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: #ffffff !important; font-size: 11.5px !important; }
+[data-testid="stSidebar"] [data-baseweb="checkbox"] p { font-size: 12.5px; color: #3a4466; }
 
 .page-title { color: #0a2463; font-weight: 700; font-size: 1.25rem; margin: 0 0 2px 0; }
 .card-desc { color: #5a6688; font-size: 0.82rem; margin-bottom: 12px; }
@@ -406,34 +423,46 @@ today = date.today()
 
 with st.sidebar:
     st.markdown('<div class="sb-title">Commodity Calendar</div>'
-                '<div class="sb-caption">ICE softs FND, LTD, LND, option expiry and exchange holidays.</div>',
+                '<div class="sb-caption">ICE softs expiries, index rolls and exchange holidays.</div>',
                 unsafe_allow_html=True)
-    st.markdown('<div class="sb-label">Exchange</div>', unsafe_allow_html=True)
-    exsel = st.pills("Exchange", list(EXCHANGES), selection_mode="multi",
-                     default=list(EXCHANGES), label_visibility="collapsed") or []
-    comm_opts = [c for e in exsel for c in EXCHANGES[e]]
-    st.markdown('<div class="sb-label">Commodities</div>', unsafe_allow_html=True)
-    comms = st.pills("Commodities", comm_opts, selection_mode="multi", default=comm_opts,
-                     label_visibility="collapsed", key=f"comms_{'_'.join(exsel)}")
-    st.markdown('<div class="sb-label">Events</div>', unsafe_allow_html=True)
-    evsel = st.pills("Events", list(EVENTS), selection_mode="multi",
-                     default=list(EVENTS), label_visibility="collapsed")
+
+    # Markets: nothing selected = all; picking one or more highlights and filters to them
+    st.markdown('<div class="sb-sec first">Markets</div>', unsafe_allow_html=True)
+    picked = []
+    for ex, cs in EXCHANGES.items():
+        st.markdown(f'<div class="sb-sub">{ex}</div>', unsafe_allow_html=True)
+        picked += st.pills(ex, cs, selection_mode="multi", default=[], key=f"pick_{ex}",
+                           label_visibility="collapsed") or []
+    comms = picked or list(COMMODITY_LABELS)
+    exsel = [e for e, cs in EXCHANGES.items() if any(c in comms for c in cs)]
+
+    st.markdown('<div class="sb-sec">Events</div>', unsafe_allow_html=True)
+    evsel = st.pills("Events", list(EVENTS), selection_mode="multi", default=[], key="pick_ev",
+                     label_visibility="collapsed") or list(EVENTS)
+
+    st.markdown('<div class="sb-sec">Show</div>', unsafe_allow_html=True)
     show_hol = st.toggle("Exchange holidays", value=True)
     show_man = st.toggle("Manual events", value=True)
-    man_groups = (st.pills("Manual groups", list(GROUPS), selection_mode="multi", default=list(GROUPS),
-                           key="man_groups", label_visibility="collapsed") or []) if show_man else []
+    man_groups = []
+    if show_man:
+        man_groups = st.pills("Manual groups", list(GROUPS), selection_mode="multi", default=[], key="man_groups",
+                              label_visibility="collapsed") or list(GROUPS)
 
+    st.markdown('<div class="sb-sec">Period</div>', unsafe_allow_html=True)
     first = pd.Timestamp(today.year, today.month, 1)
     months = [first + pd.DateOffset(months=k) for k in range(-12, 25)]
-    st.markdown('<div class="sb-label">Start month</div>', unsafe_allow_html=True)
     start = st.selectbox("Start month", months, index=12, format_func=lambda m: m.strftime("%B %Y"),
                          label_visibility="collapsed")
-    st.markdown('<div class="sb-label">Months shown</div>', unsafe_allow_html=True)
-    n_months = st.pills("Months shown", [2, 4, 6, 12], default=4, label_visibility="collapsed") or 4
-    st.markdown('<div class="sb-label">Chart horizon (months)</div>', unsafe_allow_html=True)
-    horizon = st.pills("Chart horizon", [3, 6, 12, 24], default=12, key="horizon",
-                       label_visibility="collapsed") or 12
+    st.markdown('<div class="sb-sub">Calendar months</div>', unsafe_allow_html=True)
+    n_months = st.segmented_control("Calendar months", [2, 4, 6, 12], default=4, key="n_months",
+                                    label_visibility="collapsed") or 4
+    st.markdown('<div class="sb-sub">Chart horizon (months)</div>', unsafe_allow_html=True)
+    horizon = st.segmented_control("Chart horizon", [3, 6, 12, 24], default=12, key="horizon",
+                                   label_visibility="collapsed") or 12
 
+    st.markdown(f'<div class="sb-status">{"All markets" if not picked else f"{len(comms)} market" + "s" * (len(comms) != 1)} · '
+                f'{"all" if len(evsel) == len(EVENTS) else len(evsel)} event types<br>'
+                'Nothing selected means all.</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------------------
 # main: Calendar | Timeline
