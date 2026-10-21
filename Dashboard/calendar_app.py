@@ -456,8 +456,8 @@ with st.sidebar:
     n_months = st.segmented_control("Calendar months", [2, 4, 6, 12], default=4, key="n_months",
                                     label_visibility="collapsed") or 4
     st.markdown('<div class="sb-sub">Chart horizon (months)</div>', unsafe_allow_html=True)
-    horizon = st.segmented_control("Chart horizon", [3, 6, 12, 24], default=12, key="horizon",
-                                   label_visibility="collapsed") or 12
+    horizon = st.segmented_control("Chart horizon", [3, 6, 12, 24], default=3, key="horizon",
+                                   label_visibility="collapsed") or 3
 
     st.markdown(f'<div class="sb-status">{"All markets" if not picked else f"{len(comms)} market" + "s" * (len(comms) != 1)} · '
                 f'{"all" if len(evsel) == len(EVENTS) else len(evsel)} event types<br>'
@@ -716,6 +716,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in ["FND", "LTD", "LND", "OPT"])
             + '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
             + f'<span>{glyph("IDX")}Index roll day</span>'
+            + (f'<span><span class="gl" style="color:{MAN_COLOR}">★</span>Manual event</span>' if show_man else "")
             + f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
             unsafe_allow_html=True)
         if has_data():
@@ -723,6 +724,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             # the commodity name is drawn once, centred down the left of its block like a merged cell
             # commodities are separated by a breathing gap (GAP rows of empty space), not by lines
             GAP = 0.7
+            man_win = man_view[man_view["date"].between(xrange[0], xrange[1])]
             labels, ticks, tvals, groups = [], [], [], []
             y = 0.0
             for gi, (c, g) in enumerate(fut.groupby("commodity", sort=False)):
@@ -731,6 +733,8 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                 rows = [(k, f"<span style='color:#5a6688'>{k[len(c):]}</span>") for k in g["contract"]]
                 if "OPT" in (evsel or []):   # options sit last in each block
                     rows.append((f"opt#{c}", f"<span style='color:{OPT_RED}'>Options</span>"))
+                if any(c in GROUPS[g] for g in man_win["group"]):   # manual events for this market's group
+                    rows.append((f"man#{c}", f"<span style='color:{MAN_COLOR}'>Events</span>"))
                 for lab, tick in rows:
                     labels.append(lab)
                     ticks.append(tick)
@@ -816,6 +820,31 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                               f"Expires {rel_day(d)}")
                                    for k, c, t, u, d, fn in zip(o["option"], o["commodity"], o["type"],
                                                                 o["underlying_future"], o["LTD"], o["underlying_FND"])]))
+
+            # manual events: orange stars on their own row, light orange band like the options row
+            mrows = [lab[4:] for lab in labels if lab.startswith("man#")]
+            if mrows:
+                fig.add_trace(go.Bar(
+                    orientation="h", base=[span0] * len(mrows), y=[pos[f"man#{c}"] for c in mrows],
+                    x=[(span1 - span0).total_seconds() * 1000] * len(mrows), width=0.46, hoverinfo="skip",
+                    marker=dict(color="rgba(217,130,43,0.08)", cornerradius=6, line_width=0)))
+                mx, my, mt, mh = [], [], [], []
+                for c in mrows:
+                    grp_ = next(g for g, cs in GROUPS.items() if c in cs)
+                    for r in man_win[man_win["group"] == grp_].itertuples():
+                        t_ = html.escape(r.title)
+                        mx.append(r.date)
+                        my.append(pos[f"man#{c}"])
+                        mt.append(t_ if len(t_) <= 18 else t_[:17] + "…")
+                        mh.append(f"<b><span style='color:{NAVY};font-size:13px'>{t_}</span></b>   "
+                                  f"<span style='color:#a3abbd'>{grp_} event · manual entry</span><br>"
+                                  f"<span style='color:{GOLD}'>{fmt(r.date)}</span><br><br>"
+                                  + (f"{html.escape(r.description)}<br><br>" if r.description else "")
+                                  + f"<span style='color:#8a94a8'>{rel_day(r.date).capitalize()}</span><extra></extra>")
+                fig.add_trace(go.Scatter(
+                    x=mx, y=my, mode="markers+text", text=mt, textposition="top center",
+                    textfont=dict(size=8.5, color="#b0682a"), hovertemplate=mh,
+                    marker=dict(symbol="star", size=12, color=MAN_COLOR, line=dict(color="#ffffff", width=1.5))))
 
             # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
             for k, size, dy in [("FND", 10, 0), ("LND", 9, 0), ("LTD", 10, -0.34)]:
