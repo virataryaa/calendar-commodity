@@ -9,7 +9,7 @@ import requests
 import streamlit as st
 
 REPO = "virataryaa/calendar-commodity"
-BRANCH = "main"
+BRANCH = "entries"   # app data branch: commits here do not redeploy the app (it runs from main)
 
 
 class GitHubError(Exception):
