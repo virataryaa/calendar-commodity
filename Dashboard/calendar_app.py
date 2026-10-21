@@ -545,10 +545,10 @@ def month_header(fig: go.Figure, x0, x1) -> None:
                       fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above")
         if i % 2 == 0:
             fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
-                          fillcolor="rgba(10,36,99,0.022)", line_width=0, layer="below")
+                          fillcolor="rgba(10,36,99,0.011)", line_width=0, layer="below")
         if m > x0:   # subtle grey rule at each month boundary
             fig.add_shape(type="line", xref="x", x0=m, x1=m, yref="paper", y0=0, y1=1,
-                          line=dict(color="rgba(90,102,136,0.16)", width=1), layer="below")
+                          line=dict(color="rgba(90,102,136,0.13)", width=0.6, dash="dot"), layer="below")
         if (b - a).days >= 8:
             fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19, showarrow=False, yanchor="middle",
                                text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
@@ -846,7 +846,7 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
                 '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
                 '<span><i style="background:#6d4fc2;width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
                 f'<span>{glyph("OPT")}Option expiry</span>'
-                '<span><i style="background:#e8b4b4;width:2px;height:12px;border-radius:0"></i>Exchange holiday</span>'
+                '<span><span class="gl" style="color:#a0616f;font-size:10px">&#10005;</span>Exchange holiday</span>'
                 '</div>', unsafe_allow_html=True)
             span0, span1 = xrange
             fig2 = go.Figure()
@@ -856,18 +856,18 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
                     fig2.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=i - 0.5, y1=i + 0.5,
                                    fillcolor="#f6f7fb", line_width=0, layer="below")
 
-            # exchange holidays: a faint full-height tick in each affected row
+            # exchange holidays: a small rose cross at the foot of each affected row
             hw = holidays[holidays["date"].between(span0, span1)]
             hx, hy, hh = [], [], []
             for c, i in yi.items():
                 for r in hw[hw["exchange"] == ex_of[c]].itertuples():
                     hx.append(r.date)
-                    hy.append(i)
+                    hy.append(i + 0.44)
                     hh.append(f"<b>{r.holiday}</b><br>{ex_of[c]} closed · {fmt(r.date)}<extra></extra>")
             if hx:
                 fig2.add_trace(go.Scatter(x=hx, y=hy, mode="markers", hovertemplate=hh,
-                                          marker=dict(symbol="line-ns", size=30, color="rgba(201,74,74,0)",
-                                                      line=dict(color="rgba(201,74,74,0.28)", width=2))))
+                                          marker=dict(symbol="x-thin", size=6, color="#a0616f",
+                                                      line=dict(color="#a0616f", width=1.4))))
 
             # notice windows as rounded bars (min 2 days wide so one-day windows stay visible)
             dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=2))
