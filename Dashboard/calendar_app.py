@@ -559,12 +559,17 @@ def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
                   line=dict(color="rgba(176,141,87,0.55)", width=1))
     fig.update_xaxes(showticklabels=False, ticks="", showgrid=False)
     if days:   # short horizons: each day's number under its month, weekends lighter
+        # labels sit exactly on each date (midnight), the same x as the event symbols and the Today line
+        t = pd.Timestamp(today)
         for d in pd.date_range(x0.normalize(), x1, freq="D"):
-            if d < x0 or d + pd.Timedelta(days=1) > x1:
+            if d < x0:
                 continue
-            fig.add_annotation(x=d + pd.Timedelta(hours=12), yref="paper", y=1, yshift=13, showarrow=False,
-                               yanchor="middle", text=str(d.day),
-                               font=dict(size=8.5, color="#c3c9d6" if d.weekday() >= 5 else "#7a86a8"))
+            is_today = d == t
+            fig.add_annotation(x=d, yref="paper", y=1, yshift=13, showarrow=False, yanchor="middle",
+                               text=f"<b>{d.day}</b>" if is_today else str(d.day),
+                               bgcolor=NAVY if is_today else None, borderpad=2 if is_today else 0,
+                               font=dict(size=8.5, color="#ffffff" if is_today
+                                         else ("#c3c9d6" if d.weekday() >= 5 else "#7a86a8")))
         fig.update_layout(margin=dict(t=62))
 
 
