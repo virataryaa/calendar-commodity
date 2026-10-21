@@ -127,8 +127,8 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .pop .pf { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(0,0,0,.08); color: #86868b; }
 .chip.FND { border-color: #bfe3d3; } .chip.FND .t { background: #1f9d6f; }
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
-.chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
-.chip.OPT { border-color: #b3dbe4; } .chip.OPT .t { background: #0f92a8; }
+.chip.LND { border-color: #b3dbe4; } .chip.LND .t { background: #0f92a8; }
+.chip.OPT { border-color: #ecc4c4; } .chip.OPT .t { background: #c94a4a; }
 .chip.IDX { border-color: #d3caf0; } .chip.IDX .t { background: #6d4fc2; }
 
 /* Exchange holidays */
@@ -136,14 +136,14 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .hol { position: relative; max-width: 100%; box-sizing: border-box; font-size: 9px; font-weight: 600; color: #8a2f2f;
        background: #f6dede; border-radius: 6px; padding: 2px 5px; margin: 0 0 4px; white-space: nowrap; cursor: default; }
 .hol .hn { display: inline-block; max-width: calc(100% - 26px); overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
-.hol b { color: #ffffff; background: #c94a4a; border-radius: 4px; padding: 0 4px; margin-right: 4px; font-size: 8.5px; }
+.hol b { color: #ffffff; background: #a0616f; border-radius: 4px; padding: 0 4px; margin-right: 4px; font-size: 8.5px; }
 
 /* Holiday table */
 .ht { border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 12.5px; background: #ffffff;
       border: 1px solid #e3e7f0; border-radius: 12px; overflow: hidden; max-width: 760px; width: 100%; }
 .ht th { background: #cfd8ec; color: #0a2463; font-weight: 600; text-align: left; padding: 7px 12px; }
 .ht td { padding: 6px 12px; border-top: 1px solid #eef0f6; color: #1a1a2e; }
-.ht td.x { font-weight: 600; color: #c94a4a; } .ht td.o { color: #8a94a8; }
+.ht td.x { font-weight: 600; color: #a0616f; } .ht td.o { color: #8a94a8; }
 .ht tr.past td { color: #b4bccd; } .ht tr.past td.x { color: #dca5a5; }
 
 /* Upcoming table: plain, quiet, grouped by week and day */
@@ -166,6 +166,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .up td.k { font-weight: 600; color: #3a4466; letter-spacing: .02em; }
 .up td.m { color: #5a6688; }
 .up td.m .tag { color: #b4bccd; font-size: 10.5px; margin-left: 8px; }
+.gl { display: inline-block; width: 14px; text-align: center; margin-right: 6px; line-height: 1; }
 .up .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 10px; vertical-align: 1px; }
 .up tr.hol td:not(.d) { color: #a86565; }
 .up tr.ev:hover td:not(.d), .up tr.hol:hover td:not(.d) { background: #f9fafc; }
@@ -358,7 +359,12 @@ with st.sidebar:
 # ---------------------------------------------------------------------------------------------
 # main: Calendar | Timeline
 # ---------------------------------------------------------------------------------------------
-EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#c94a4a", "OPT": "#0f92a8", "IDX": "#6d4fc2"}
+EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#0f92a8", "OPT": "#c94a4a", "IDX": "#6d4fc2"}
+EV_GLYPH = {"FND": "●", "LTD": "◆", "LND": "■", "OPT": "▲", "IDX": "▮"}   # same marks as the charts
+
+
+def glyph(k: str, size: str = "11px") -> str:
+    return f'<span class="gl" style="color:{EV_COLOR[k]};font-size:{size}">{EV_GLYPH[k]}</span>'
 EV_SYMBOL = {"FND": "circle", "LTD": "diamond", "LND": "square", "OPT": "triangle-up", "IDX": "triangle-down"}
 NAVY, GRID, AXIS = "#0a2463", "rgba(10,36,99,0.07)", "#8a94a8"
 
@@ -368,7 +374,7 @@ hol = holidays[holidays["exchange"].isin(exsel)] if show_hol else holidays.iloc[
 
 def legend_html(extra: str = "") -> str:
     return ('<div class="lgd">'
-            + "".join(f'<span><i style="background:{EV_COLOR[k]}"></i>{EVENTS[k][1]}</span>' for k in EVENTS)
+            + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in EVENTS)
             + extra + f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>')
 
 
@@ -400,7 +406,7 @@ def add_today(fig: go.Figure) -> None:
 
 
 GOLD = "#b08d57"
-OPT_RED = "#c94a4a"   # Gantt options row
+OPT_RED = EV_COLOR["OPT"]   # Gantt options row
 
 
 def rel_day(d) -> str:
@@ -411,7 +417,8 @@ def rel_day(d) -> str:
 def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
     """Luxury hover card: navy code + muted market, gold subtitle, dotted key/value lines, muted footer."""
     ex = "ICE US" if c in EXCHANGES["New York"] else "ICE Europe"
-    lines = "<br>".join(f"<span style='color:{col}'>●</span>  <span style='color:#8a94a8'>{k}</span>"
+    inv = {v: e for e, v in EV_COLOR.items()}
+    lines = "<br>".join(f"<span style='color:{col}'>{EV_GLYPH.get(inv.get(col), '●')}</span>  <span style='color:#8a94a8'>{k}</span>"
                         f"   <b>{v}</b>" for col, k, v in rows)
     return (f"<b><span style='color:{NAVY};font-size:13px'>{code}</span></b>   "
             f"<span style='color:#a3abbd'>{SHORT_NAME[c]} · {ex}</span><br>"
@@ -502,7 +509,7 @@ with tab_up:
                              f'<td class="m">{name}<span class="tag">{affected}</span></td></tr>')
                 else:
                     body += (f'<tr class="ev{first}">{date_td}'
-                             f'<td><i class="dot" style="background:{EV_COLOR[r.event]}"></i>{EVENTS[r.event][1]}</td>'
+                             f'<td>{glyph(r.event, "10px")}{EVENTS[r.event][1]}</td>'
                              f'<td class="k">{r.code}</td>'
                              f'<td class="m">{COMMODITY_LABELS[r.commodity]}'
                              f'<span class="tag">{ex_tag[r.commodity]}</span></td></tr>')
@@ -516,7 +523,7 @@ with tab_up:
 
 with tab_cal:
     st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
-    st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #c94a4a"></i>'
+    st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #a0616f"></i>'
                             'Exchange closed (NY / EU)</span>'), unsafe_allow_html=True)
     cards = []
     for k in range(n_months):
@@ -565,15 +572,11 @@ def has_data() -> bool:
 with tab_gantt:
     st.markdown(
         '<div class="lgd">'
-        '<span><i style="background:#c3cde4;width:20px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(10,36,99,0.35)"></i>Notice window</span>'
-        f'<span><i style="background:{EV_COLOR["FND"]};border-radius:999px"></i>First Notice</span>'
-        f'<span><i style="background:{EV_COLOR["LTD"]};transform:rotate(45deg)"></i>Last Trading</span>'
-        f'<span><i style="background:{EV_COLOR["LND"]}"></i>Last Notice</span>'
-        f'<span style="color:{OPT_RED}">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
-        '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
-        'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
-        f'<span><i style="background:{EV_COLOR["IDX"]};width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
-        f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
+        '<span><i style="background:#c3cde4;width:20px;border-radius:4px"></i>Notice window</span>'
+        + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in ["FND", "LTD", "LND", "OPT"])
+        + '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
+        + f'<span>{glyph("IDX")}Index roll day</span>'
+        + f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
         unsafe_allow_html=True)
     if has_data():
         # rows per commodity: its Options line, then its contracts (numeric y so marks can be placed exactly);
@@ -626,7 +629,7 @@ with tab_gantt:
                 orientation="h", base=ix["IDX_START"], y=iy, width=0.62,
                 x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
                 marker=dict(color="rgba(109,79,194,0.22)", cornerradius=5,
-                            line=dict(color="rgba(109,79,194,0.55)", width=1)),
+                            line_width=0),
                 hovertemplate=[hover_card(k, c, "Index roll window · ±5 business days",
                                           [("#c9bdf0", "Window opens", fmt(a)),
                                            (EV_COLOR["IDX"], "Roll day", fmt(d)),
@@ -642,7 +645,7 @@ with tab_gantt:
         dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=1))
         fig.add_trace(go.Bar(
             orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut_y, width=0.4,
-            marker=dict(color="#c3cde4", cornerradius=5, line=dict(color="rgba(10,36,99,0.35)", width=1)),
+            marker=dict(color="#c3cde4", cornerradius=5, line_width=0),
             hovertemplate=[hover_card(r.contract, r.commodity, "Notice window",
                                       [(EV_COLOR["FND"], "First notice", fmt(r.FND)),
                                        (EV_COLOR["LTD"], "Last trading", fmt(r.LTD))]
@@ -660,7 +663,7 @@ with tab_gantt:
             fig.add_trace(go.Bar(
                 orientation="h", base=[span0] * len(oc), y=[pos[f"opt#{c}"] for c in oc],
                 x=[(span1 - span0).total_seconds() * 1000] * len(oc), width=0.46, hoverinfo="skip",
-                marker=dict(color="rgba(201,74,74,0.07)", cornerradius=6, line=dict(color="rgba(201,74,74,0.16)", width=1))))
+                marker=dict(color="rgba(201,74,74,0.07)", cornerradius=6, line_width=0)))
             fig.add_trace(go.Scatter(
                 x=o["LTD"], y=oy, mode="markers+text",
                 text=[k[len(c):] for k, c in zip(o["option"], o["commodity"])], textposition="top center",
@@ -712,11 +715,10 @@ with tab_roll:
                     unsafe_allow_html=True)
         st.markdown(
             '<div class="lgd">'
-            '<span><i style="background:#c3cde4;width:18px;box-shadow:inset 0 0 0 1px rgba(10,36,99,0.35)"></i>Notice window (FND → LND)</span>'
-            '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
-            'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
+            '<span><i style="background:#c3cde4;width:18px"></i>Notice window (FND → LND)</span>'
+            '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
             '<span><i style="background:#6d4fc2;width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
-            '<span style="color:#0f92a8">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
+            f'<span>{glyph("OPT")}Option expiry</span>'
             '<span><i style="background:#e8b4b4;width:2px;height:12px;border-radius:0"></i>Exchange holiday</span>'
             '</div>', unsafe_allow_html=True)
         span0, span1 = xrange
@@ -744,7 +746,7 @@ with tab_roll:
         dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=2))
         fig2.add_trace(go.Bar(
             orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut["commodity"].map(yi),
-            width=0.3, marker=dict(color="#c3cde4", cornerradius=4, line=dict(color="rgba(10,36,99,0.35)", width=1)),
+            width=0.3, marker=dict(color="#c3cde4", cornerradius=4, line_width=0),
             hovertemplate=[f"<b>{r.contract}</b><br>FND {fmt(r.FND)}<br>LTD {fmt(r.LTD)}"
                            + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
                            + (f"<br>Index roll {fmt(r.IDX)}" if pd.notna(r.IDX) else "") + "<extra></extra>"
@@ -765,7 +767,7 @@ with tab_roll:
                 orientation="h", base=ix["IDX_START"], y=ix["commodity"].map(yi), width=0.5,
                 x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
                 marker=dict(color="rgba(109,79,194,0.22)", cornerradius=5,
-                            line=dict(color="rgba(109,79,194,0.55)", width=1)),
+                            line_width=0),
                 hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
                                f"Roll day <b>{fmt(d)}</b><extra></extra>"
                                for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
@@ -817,7 +819,7 @@ with tab_heat:
                 sub = f"<span style='color:{muted}'>Week of {w:%a %d %b} – {w + pd.Timedelta(days=6):%a %d %b %Y}</span>"
                 if n:
                     lines = "<br>".join(
-                        f"<span style='color:{EV_COLOR[r.event]}'>●</span>  <b>{r.code[len(c):]}</b>  "
+                        f"<span style='color:{EV_COLOR[r.event]}'>{EV_GLYPH[r.event]}</span>  <b>{r.code[len(c):]}</b>  "
                         f"{EVENTS[r.event][1]}  <span style='color:{muted}'>{r.date:%a %d %b}</span>"
                         for r in g.itertuples())
                     foot = f"<span style='color:{muted}'>{n} event{'s' * (n != 1)}</span>"
