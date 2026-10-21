@@ -400,6 +400,23 @@ def add_today(fig: go.Figure) -> None:
 
 
 GOLD = "#b08d57"
+OPT_RED = "#c94a4a"   # Gantt options row
+
+
+def rel_day(d) -> str:
+    n = (pd.Timestamp(d).normalize() - pd.Timestamp(today)).days
+    return "today" if n == 0 else (f"in {n} day{'s' * (n != 1)}" if n > 0 else f"{-n} day{'s' * (n != -1)} ago")
+
+
+def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
+    """Luxury hover card: navy code + muted market, gold subtitle, dotted key/value lines, muted footer."""
+    ex = "ICE US" if c in EXCHANGES["New York"] else "ICE Europe"
+    lines = "<br>".join(f"<span style='color:{col}'>●</span>  <span style='color:#8a94a8'>{k}</span>"
+                        f"   <b>{v}</b>" for col, k, v in rows)
+    return (f"<b><span style='color:{NAVY};font-size:13px'>{code}</span></b>   "
+            f"<span style='color:#a3abbd'>{SHORT_NAME[c]} · {ex}</span><br>"
+            f"<span style='color:{GOLD}'>{sub}</span><br><br>{lines}<br><br>"
+            f"<span style='color:#8a94a8'>{foot}</span><extra></extra>")
 
 
 def month_header(fig: go.Figure, x0, x1) -> None:
@@ -552,7 +569,7 @@ with tab_gantt:
         f'<span><i style="background:{EV_COLOR["FND"]};border-radius:999px"></i>First Notice</span>'
         f'<span><i style="background:{EV_COLOR["LTD"]};transform:rotate(45deg)"></i>Last Trading</span>'
         f'<span><i style="background:{EV_COLOR["LND"]}"></i>Last Notice</span>'
-        f'<span style="color:{EV_COLOR["OPT"]}">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
+        f'<span style="color:{OPT_RED}">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
         '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
         'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
         f'<span><i style="background:{EV_COLOR["IDX"]};width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
@@ -568,9 +585,9 @@ with tab_gantt:
         for gi, (c, g) in enumerate(fut.groupby("commodity", sort=False)):
             y += GAP if gi else 0
             first = y
-            rows = ([(f"opt#{c}", f"<span style='color:{EV_COLOR['OPT']}'>Options</span>")]
-                    if "OPT" in (evsel or []) else [])
-            rows += [(k, f"<span style='color:#5a6688'>{k[len(c):]}</span>") for k in g["contract"]]
+            rows = [(k, f"<span style='color:#5a6688'>{k[len(c):]}</span>") for k in g["contract"]]
+            if "OPT" in (evsel or []):   # options sit last in each block
+                rows.append((f"opt#{c}", f"<span style='color:{OPT_RED}'>Options</span>"))
             for lab, tick in rows:
                 labels.append(lab)
                 ticks.append(tick)
@@ -610,9 +627,13 @@ with tab_gantt:
                 x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
                 marker=dict(color="rgba(109,79,194,0.22)", cornerradius=5,
                             line=dict(color="rgba(109,79,194,0.55)", width=1)),
-                hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
-                               f"Roll day <b>{fmt(d)}</b><extra></extra>"
-                               for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
+                hovertemplate=[hover_card(k, c, "Index roll window · ±5 business days",
+                                          [("#c9bdf0", "Window opens", fmt(a)),
+                                           (EV_COLOR["IDX"], "Roll day", fmt(d)),
+                                           ("#c9bdf0", "Window closes", fmt(b))],
+                                          f"Roll day {rel_day(d)}")
+                               for k, c, a, b, d in zip(ix["contract"], ix["commodity"], ix["IDX_START"],
+                                                        ix["IDX_END"], ix["IDX"])]))
             fig.add_trace(go.Scatter(
                 x=ix["IDX"], y=iy, mode="markers", hoverinfo="skip",
                 marker=dict(symbol="line-ns", size=17, line=dict(color=EV_COLOR["IDX"], width=3))))
@@ -622,29 +643,36 @@ with tab_gantt:
         fig.add_trace(go.Bar(
             orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut_y, width=0.4,
             marker=dict(color="#c3cde4", cornerradius=5, line=dict(color="rgba(10,36,99,0.35)", width=1)),
-            hovertemplate=[f"<b>{r.contract}</b> · {COMMODITY_LABELS[r.commodity]}<br>FND {fmt(r.FND)}<br>"
-                           f"LTD {fmt(r.LTD)}" + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
-                           + "<extra></extra>" for r in fut.itertuples()]))
+            hovertemplate=[hover_card(r.contract, r.commodity, "Notice window",
+                                      [(EV_COLOR["FND"], "First notice", fmt(r.FND)),
+                                       (EV_COLOR["LTD"], "Last trading", fmt(r.LTD))]
+                                      + ([(EV_COLOR["LND"], "Last notice", fmt(r.LND))] if pd.notna(r.LND) else [])
+                                      + ([(EV_COLOR["IDX"], "Index roll", fmt(r.IDX))] if pd.notna(r.IDX) else []),
+                                      f"{(r.w1 - r.w0).days + 1}-day window · last trading {rel_day(r.LTD)}")
+                           for r in fut.itertuples()]))
 
         # each commodity's option expiries on their own row, labelled with the option month
         if "OPT" in (evsel or []):
             o = opt[opt["commodity"].map(lambda c: f"opt#{c}" in pos)]
             oy = o["commodity"].map(lambda c: pos[f"opt#{c}"])
-            ox, oyy = [], []
-            for c in o["commodity"].unique():
-                ox += [span0, span1, None]
-                oyy += [pos[f"opt#{c}"]] * 2 + [None]
-            fig.add_trace(go.Scatter(x=ox, y=oyy, mode="lines", hoverinfo="skip",
-                                     line=dict(color="rgba(15,146,168,0.22)", width=1, dash="dot")))
+            # a light rounded red band carries the row instead of a dotted line
+            oc = [lab[4:] for lab in labels if lab.startswith("opt#")]
+            fig.add_trace(go.Bar(
+                orientation="h", base=[span0] * len(oc), y=[pos[f"opt#{c}"] for c in oc],
+                x=[(span1 - span0).total_seconds() * 1000] * len(oc), width=0.46, hoverinfo="skip",
+                marker=dict(color="rgba(201,74,74,0.07)", cornerradius=6, line=dict(color="rgba(201,74,74,0.16)", width=1))))
             fig.add_trace(go.Scatter(
                 x=o["LTD"], y=oy, mode="markers+text",
                 text=[k[len(c):] for k, c in zip(o["option"], o["commodity"])], textposition="top center",
-                textfont=dict(size=8.5, color="#5a8a94"),
-                marker=dict(symbol="triangle-up", size=9, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
-                hovertemplate=[f"<b>{k}</b> · {t} option<br>Expiry <b>{fmt(d)}</b><br>Underlying {u}"
-                               + (f" · FND {fmt(fn)}" if pd.notna(fn) else "") + "<extra></extra>"
-                               for k, t, u, d, fn in zip(o["option"], o["type"], o["underlying_future"],
-                                                         o["LTD"], o["underlying_FND"])]))
+                textfont=dict(size=8.5, color="#a86565"),
+                marker=dict(symbol="triangle-up", size=9, color=OPT_RED, line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[hover_card(k, c, f"{t} option",
+                                          [(OPT_RED, "Expiry", fmt(d)),
+                                           ("#c3cde4", "Underlying", u)]
+                                          + ([(EV_COLOR["FND"], "Underlying FND", fmt(fn))] if pd.notna(fn) else []),
+                                          f"Expires {rel_day(d)}")
+                               for k, c, t, u, d, fn in zip(o["option"], o["commodity"], o["type"],
+                                                            o["underlying_future"], o["LTD"], o["underlying_FND"])]))
 
         # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
         for k, size, dy in [("FND", 10, 0), ("LND", 9, 0), ("LTD", 10, -0.34)]:
@@ -654,8 +682,9 @@ with tab_gantt:
             fig.add_trace(go.Scatter(
                 x=s[k], y=s["contract"].map(pos) + dy, mode="markers",
                 marker=dict(symbol=EV_SYMBOL[k], size=size, color=EV_COLOR[k], line=dict(color="#ffffff", width=2)),
-                hovertemplate=[f"<b>{c}</b> · {EVENTS[k][1]}<br>{fmt(d)}<extra></extra>"
-                               for c, d in zip(s["contract"], s[k])]))
+                hovertemplate=[hover_card(code, c, EVENTS[k][1], [(EV_COLOR[k], EVENTS[k][1], fmt(d))],
+                                          rel_day(d).capitalize())
+                               for code, c, d in zip(s["contract"], s["commodity"], s[k])]))
 
         # today: thin navy rule with a pill label
         t = pd.Timestamp(today)
@@ -666,7 +695,9 @@ with tab_gantt:
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
         style_fig(fig, int(30 * (y_end + 1)) + 74)
-        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=160, r=12, t=40, b=34))
+        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=160, r=12, t=40, b=34), hovermode="closest",
+                          hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.16)", align="left",
+                                          font=dict(family="Inter, sans-serif", size=12, color="#1d1d1f")))
         fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
         fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
