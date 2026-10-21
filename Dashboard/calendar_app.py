@@ -144,23 +144,29 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .ht td.x { font-weight: 600; color: #c94a4a; } .ht td.o { color: #8a94a8; }
 .ht tr.past td { color: #b4bccd; } .ht tr.past td.x { color: #dca5a5; }
 
-/* Upcoming table: plain, quiet, grouped by day */
-.up { width: 100%; max-width: 860px; border-collapse: separate; border-spacing: 0; background: #ffffff;
-      border: 1px solid #e6e9f1; border-radius: 12px; overflow: hidden; font-family: 'Inter', sans-serif; font-size: 12.5px; }
-.up th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-         color: #9aa3b5; background: #fbfbfd; padding: 9px 16px; border-bottom: 1px solid #eef0f6; }
-.up td { padding: 8px 16px; color: #1a1a2e; border-bottom: 1px solid #f3f4f8; vertical-align: middle; }
-.up tr.first td { border-top: 1px solid #e9ecf3; }
+/* Upcoming table: plain, quiet, grouped by week and day */
+.up { width: 100%; max-width: 880px; border-collapse: separate; border-spacing: 0; background: #ffffff;
+      border: 1px solid #e8ebf2; border-radius: 14px; overflow: hidden; font-family: 'Inter', sans-serif; font-size: 12.5px;
+      box-shadow: 0 1px 3px rgba(10,36,99,0.04); }
+.up th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+         color: #a3abbd; background: #ffffff; padding: 11px 18px 9px; border-bottom: 1px solid #eef0f6; }
+.up td { padding: 10px 18px; color: #1a1a2e; border-bottom: 1px solid #f4f5f9; vertical-align: middle; }
 .up tr:last-child td { border-bottom: none; }
-.up td.d { width: 120px; vertical-align: top; border-right: 1px solid #f3f4f8; background: #fdfdfe; }
-.up td.d b { color: #0a2463; font-weight: 600; display: block; }
-.up td.d span { color: #9aa3b5; font-size: 11px; }
-.up td.d.now b { color: #ffffff; background: #0a2463; border-radius: 6px; padding: 1px 7px; display: inline-block; }
-.up td.k { font-weight: 600; color: #3a4466; letter-spacing: .01em; }
-.up td.m { color: #8a94a8; }
-.up .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 9px; vertical-align: 1px; }
+.up tr.wk td { background: #fafbfd; color: #0a2463; font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+               text-transform: uppercase; padding: 7px 18px; border-bottom: 1px solid #eef0f6; border-top: 1px solid #eef0f6; }
+.up tr.wk td span { color: #a3abbd; font-weight: 500; letter-spacing: .02em; text-transform: none; margin-left: 8px; }
+.up td.d { width: 92px; vertical-align: top; padding-top: 10px; border-right: 1px solid #f4f5f9; }
+.up td.d .dn { font-family: 'Fraunces', Georgia, serif; font-size: 1.35rem; font-weight: 600; color: #0a2463; line-height: 1; }
+.up td.d .dw { color: #8a94a8; font-size: 10.5px; margin-top: 3px; }
+.up td.d .rel { display: inline-block; margin-top: 5px; font-size: 10px; color: #5a6688; background: #f1f3f8;
+                border-radius: 999px; padding: 1px 8px; }
+.up td.d.now .rel { background: #0a2463; color: #ffffff; }
+.up td.k { font-weight: 600; color: #3a4466; letter-spacing: .02em; }
+.up td.m { color: #5a6688; }
+.up td.m .tag { color: #b4bccd; font-size: 10.5px; margin-left: 8px; }
+.up .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 10px; vertical-align: 1px; }
 .up tr.hol td:not(.d) { color: #a86565; }
-.up tr:hover td:not(.d) { background: #f8f9fc; }
+.up tr.ev:hover td:not(.d), .up tr.hol:hover td:not(.d) { background: #f9fafc; }
 
 /* Pill tabs */
 /* Streamlit's tab strip clips overflow, which cropped the top of the pill track */
@@ -394,8 +400,8 @@ def fmt(d) -> str:
     return pd.Timestamp(d).strftime("%a %d %b %Y")
 
 
-tab_up, tab_cal, tab_gantt, tab_roll, tab_heat, tab_hol = st.tabs(
-    ["Upcoming", "Calendar", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays"])
+tab_cal, tab_up, tab_gantt, tab_roll, tab_heat, tab_hol = st.tabs(
+    ["Calendar", "Upcoming", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays"])
 
 with tab_up:
     days = st.pills("Next", [7, 14, 30, 60], default=14, format_func=lambda d: f"{d} days", key="up_days",
@@ -420,31 +426,47 @@ with tab_up:
             n = (d - t0).days
             return "Today" if n == 0 else ("Tomorrow" if n == 1 else f"in {n} days")
 
-        body = ""
+        def week_label(w) -> str:
+            this_w = t0 - pd.Timedelta(days=t0.weekday())
+            k = (w - this_w).days // 7
+            name = "This week" if k == 0 else ("Next week" if k == 1 else f"Week of {w:%d %b}")
+            return f"{name} <span>{w:%d %b} – {w + pd.Timedelta(days=6):%d %b}</span>"
+
+        ex_tag = {c: ("ICE US" if c in EXCHANGES["New York"] else "ICE EU") for c in COMMODITY_LABELS}
+        body, last_week = "", None
         for d, grp in groupby(items, key=lambda x: x[0]):
             grp = list(grp)
+            w = d - pd.Timedelta(days=d.weekday())
+            if w != last_week:
+                body += f'<tr class="wk"><td colspan="4">{week_label(w)}</td></tr>'
+                last_week = w
             for j, (_, is_hol, _, r) in enumerate(grp):
                 date_td = ""
                 if j == 0:
-                    cls = " now" if d == t0 else ""
-                    date_td = (f'<td class="d{cls}" rowspan="{len(grp)}"><b>{d:%a %d %b}</b>'
-                               f'<span>{rel(d)}</span></td>')
+                    now = " now" if d == t0 else ""
+                    date_td = (f'<td class="d{now}" rowspan="{len(grp)}"><div class="dn">{d:%d}</div>'
+                               f'<div class="dw">{d:%a} · {d:%b}</div><div class="rel">{rel(d)}</div></td>')
+                first = " first" if j == 0 else ""
                 if is_hol:
                     name, exs = r
                     affected = ", ".join(c for e in exs for c in EXCHANGES[e])
-                    body += (f'<tr class="hol{" first" if j == 0 else ""}">{date_td}'
+                    body += (f'<tr class="hol{first}">{date_td}'
                              f'<td><i class="dot" style="background:#e3a3a3"></i>Exchange closed</td>'
-                             f'<td class="k">{" + ".join(exs)}</td><td class="m">{name} · {affected}</td></tr>')
+                             f'<td class="k">{" + ".join(exs)}</td>'
+                             f'<td class="m">{name}<span class="tag">{affected}</span></td></tr>')
                 else:
-                    body += (f'<tr class="{"first" if j == 0 else ""}">{date_td}'
+                    body += (f'<tr class="ev{first}">{date_td}'
                              f'<td><i class="dot" style="background:{EV_COLOR[r.event]}"></i>{EVENTS[r.event][1]}</td>'
-                             f'<td class="k">{r.code}</td><td class="m">{COMMODITY_LABELS[r.commodity]}</td></tr>')
+                             f'<td class="k">{r.code}</td>'
+                             f'<td class="m">{COMMODITY_LABELS[r.commodity]}'
+                             f'<span class="tag">{ex_tag[r.commodity]}</span></td></tr>')
         n_ev = sum(1 for x in items if not x[1])
-        st.markdown(f'<div class="card-desc">{n_ev} event{"s" * (n_ev != 1)} in the next {days} days '
-                    f'· from {t0:%a %d %b %Y}</div>', unsafe_allow_html=True)
-        st.markdown('<table class="up"><tr><th>When</th><th>Event</th><th>Contract</th><th>Market</th></tr>'
+        n_hol = len(items) - n_ev
+        st.markdown(f'<div class="card-desc">{n_ev} event{"s" * (n_ev != 1)}'
+                    + (f' and {n_hol} closure{"s" * (n_hol != 1)}' if n_hol else "")
+                    + f' in the next {days} days, from {t0:%a %d %b %Y}</div>', unsafe_allow_html=True)
+        st.markdown('<table class="up"><tr><th>Date</th><th>Event</th><th>Contract</th><th>Market</th></tr>'
                     f'{body}</table>', unsafe_allow_html=True)
-
 
 with tab_cal:
     st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
