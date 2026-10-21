@@ -57,14 +57,11 @@ published calendars (`Validate/`).
 
 ## Known exceptions (historical listing dates only)
 
-8 of 468 reference dates differ, all first trading days already in the
+8 of 486 reference dates differ, all first trading days already in the
 past, with no consistent rule in ICE's own data: CC Mar28/May28 options
 (listed late, 2026-06-09), SB May27/Oct27/May28/Mar29 options (listed same
 day as the future instead of the next day), LCC Dec27 future and option
 (one day early). Every FND, LTD, LND and option expiry matches.
-
-`Validate/KC O.csv` is a copy of `KC F.csv`, so KC options aren't validated
-directly; they use the same rules as CC, which match 100%.
 
 ## Running it
 

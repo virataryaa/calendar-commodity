@@ -63,7 +63,7 @@ MONTH_NAME_TO_NUM = {
 
 FUTURES_FILES = {"KC": "KC F.csv", "RC": "RC F.csv", "CC": "CC F.csv",
                   "LCC": "LCC F.csv", "SB": "SB F.csv", "LSU": "LSU F.csv", "CT": "CT F.csv"}
-OPTIONS_FILES = {"RC": "RC O.csv", "CC": "CC O.csv", "LCC": "LCC O.csv",
+OPTIONS_FILES = {"KC": "KC O.csv", "RC": "RC O.csv", "CC": "CC O.csv", "LCC": "LCC O.csv",
                   "SB": "SB O.csv", "LSU": "LSU O.csv", "CT": "CT O.csv"}
 # KC O.csv excluded: it's a byte-for-byte duplicate of KC F.csv (futures
 # FDD/LDD/FSD columns, not the options FTD/LTD format every other *_O.csv
