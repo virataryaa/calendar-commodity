@@ -447,6 +447,9 @@ with tab_gantt:
             labels.append(f"#{c}")
             ticks.append(f"<b><span style='color:#0a2463'>{COMMODITY_LABELS[c]}</span></b>"
                          f"  <span style='color:#a3abbd'>{c}</span>")
+            if "OPT" in (evsel or []):
+                labels.append(f"opt#{c}")
+                ticks.append(f"<span style='color:{EV_COLOR['OPT']}'>Options</span>")
             for k in g["contract"]:
                 labels.append(k)
                 ticks.append(f"<span style='color:#5a6688'>{k[len(c):]}</span>")
@@ -497,14 +500,25 @@ with tab_gantt:
                            f"LTD {fmt(r.LTD)}" + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
                            + "<extra></extra>" for r in fut.itertuples()]))
 
-        # option expiries sit on the hairline of their underlying
+        # each commodity's option expiries on their own row, labelled with the option month
         if "OPT" in (evsel or []):
-            o = opt[opt["underlying_future"].isin(pos)]
+            o = opt[opt["commodity"].map(lambda c: f"opt#{c}" in pos)]
+            oy = o["commodity"].map(lambda c: pos[f"opt#{c}"])
+            ox, oyy = [], []
+            for c in o["commodity"].unique():
+                ox += [span0, span1, None]
+                oyy += [pos[f"opt#{c}"]] * 2 + [None]
+            fig.add_trace(go.Scatter(x=ox, y=oyy, mode="lines", hoverinfo="skip",
+                                     line=dict(color="rgba(15,146,168,0.22)", width=1, dash="dot")))
             fig.add_trace(go.Scatter(
-                x=o["LTD"], y=o["underlying_future"].map(pos), mode="markers",
-                marker=dict(symbol="triangle-up", size=8, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
-                hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u} · {fmt(d)}<extra></extra>"
-                               for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
+                x=o["LTD"], y=oy, mode="markers+text",
+                text=[k[len(c):] for k, c in zip(o["option"], o["commodity"])], textposition="top center",
+                textfont=dict(size=8.5, color="#5a8a94"),
+                marker=dict(symbol="triangle-up", size=9, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[f"<b>{k}</b> · {t} option<br>Expiry <b>{fmt(d)}</b><br>Underlying {u}"
+                               + (f" · FND {fmt(fn)}" if pd.notna(fn) else "") + "<extra></extra>"
+                               for k, t, u, d, fn in zip(o["option"], o["type"], o["underlying_future"],
+                                                         o["LTD"], o["underlying_FND"])]))
 
         # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
         for k, size, dy in [("FND", 10, 0), ("LND", 9, 0), ("LTD", 10, -0.34)]:
