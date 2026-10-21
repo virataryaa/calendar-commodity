@@ -398,7 +398,7 @@ xrange = [win0 - pd.Timedelta(days=2), win1 + pd.Timedelta(days=2)]
 order = {c: i for i, c in enumerate(COMMODITY_LABELS)}
 
 fut = load_table("futures", data_v)
-for col in ["FTD", "FND", "LTD", "LND", "IDX"]:
+for col in ["FTD", "FND", "LTD", "LND", "IDX", "IDX_START", "IDX_END"]:
     if col not in fut:
         fut[col] = pd.NaT
 fut = fut[fut["commodity"].isin(comms or [])].copy()
@@ -421,61 +421,109 @@ def has_data() -> bool:
 
 
 with tab_gantt:
-    st.markdown(legend_html(), unsafe_allow_html=True)
+    st.markdown(
+        '<div class="lgd">'
+        '<span><i style="background:#0a2463;width:20px;border-radius:4px"></i>Notice window</span>'
+        f'<span><i style="background:{EV_COLOR["FND"]};border-radius:999px"></i>First Notice</span>'
+        f'<span><i style="background:{EV_COLOR["LTD"]};transform:rotate(45deg)"></i>Last Trading</span>'
+        f'<span><i style="background:{EV_COLOR["LND"]}"></i>Last Notice</span>'
+        f'<span style="color:{EV_COLOR["OPT"]}">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
+        '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
+        'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
+        f'<span><i style="background:{EV_COLOR["IDX"]};width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
+        '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>',
+        unsafe_allow_html=True)
     if has_data():
-        # 1. Contract Gantt ----------------------------------------------------------------------
-        st.markdown('<div class="card-desc">Grey = trading, navy = notice / delivery window.</div>',
-                    unsafe_allow_html=True)
-        # one block per commodity: a bold header row, then that commodity's contracts
+        # rows: a header per commodity, then its contracts (numeric y so marks can be placed exactly)
         labels, ticks, groups = [], [], []
         for c, g in fut.groupby("commodity", sort=False):
             first = len(labels)
             labels.append(f"#{c}")
-            ticks.append(f"<b>{COMMODITY_LABELS[c]}</b> <span style='color:#8a94a8'>{c}</span>")
+            ticks.append(f"<b><span style='color:#0a2463'>{COMMODITY_LABELS[c]}</span></b>"
+                         f"  <span style='color:#a3abbd'>{c}</span>")
             for k in g["contract"]:
                 labels.append(k)
                 ticks.append(f"<span style='color:#5a6688'>{k[len(c):]}</span>")
             groups.append((first, len(labels) - 1))
+        pos = {lab: i for i, lab in enumerate(labels)}
+        fut_y = fut["contract"].map(pos)
+        span0, span1 = xrange
         fig = go.Figure()
-        life_x, life_y, win_x, win_y = [], [], [], []
-        for r in fut.itertuples():
-            a = max(r.FTD, xrange[0]) if pd.notna(r.FTD) else xrange[0]
-            life_x += [a, r.w0, None]
-            life_y += [r.contract, r.contract, None]
-            win_x += [r.w0, r.w1, None]
-            win_y += [r.contract, r.contract, None]
-        fig.add_trace(go.Scatter(x=life_x, y=life_y, mode="lines", line=dict(color="#c7cedd", width=2),
-                                 hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=win_x, y=win_y, mode="lines", line=dict(color="rgba(10,36,99,0.28)", width=9),
-                                 hoverinfo="skip"))
-        for k in [e for e in ["IDX", "FND", "LTD", "LND"] if e in (evsel or [])]:
-            s = fut.dropna(subset=[k])
-            fig.add_trace(go.Scatter(
-                x=s[k], y=s["contract"], mode="markers",
-                marker=dict(symbol=EV_SYMBOL[k], size=9, color=EV_COLOR[k], line=dict(color="#ffffff", width=1.5)),
-                hovertemplate=[f"<b>{c}</b> · {EVENTS[k][1]}<br>{fmt(d)}<extra></extra>"
-                               for c, d in zip(s["contract"], s[k])]))
-        if "OPT" in (evsel or []):
-            o = opt[opt["underlying_future"].isin(labels)]
-            fig.add_trace(go.Scatter(
-                x=o["LTD"], y=o["underlying_future"], mode="markers",
-                marker=dict(symbol="triangle-up", size=9, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
-                hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u}<br>{fmt(d)}<extra></extra>"
-                               for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
-        # header rows carry no data, so an invisible point keeps each one on the axis
-        heads = [l for l in labels if l.startswith("#")]
-        fig.add_trace(go.Scatter(x=[xrange[0]] * len(heads), y=heads, mode="markers",
-                                 marker=dict(opacity=0), hoverinfo="skip"))
+
+        # group bands + a navy accent on each header row
         for n, (a, b) in enumerate(groups):
             fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=b + 0.5, layer="below",
-                          fillcolor="#f6f7fb" if n % 2 == 0 else "#ffffff", line_width=0)
-            fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=a - 0.5,
-                          line=dict(color="rgba(10,36,99,0.18)", width=1))
-        add_today(fig)
-        style_fig(fig, 26 * len(labels) + 70)
-        fig.update_xaxes(range=xrange)
-        fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed",
-                         tickmode="array", tickvals=labels, ticktext=ticks, tickfont=dict(size=10.5))
+                          fillcolor="#f8f9fc" if n % 2 == 0 else "#ffffff", line_width=0)
+            fig.add_shape(type="rect", xref="paper", x0=0, x1=0.0035, y0=a - 0.28, y1=a + 0.28,
+                          fillcolor=NAVY, line_width=0)
+
+        # hairline: trading life up to the notice window
+        lx, ly = [], []
+        for r, y in zip(fut.itertuples(), fut_y):
+            a = max(r.FTD, span0) if pd.notna(r.FTD) else span0
+            lx += [a, r.w0, None]
+            ly += [y, y, None]
+        fig.add_trace(go.Scatter(x=lx, y=ly, mode="lines", line=dict(color="#d9dee9", width=1.2), hoverinfo="skip"))
+
+        # index roll window (IR ± 5 business days) as a soft band, IR day as a bold tick
+        if "IDX" in (evsel or []) and "IDX_START" in fut:
+            ix = fut.dropna(subset=["IDX_START"])
+            ix = ix[(ix["IDX_END"] >= span0) & (ix["IDX_START"] <= span1)]
+            iy = ix["contract"].map(pos)
+            fig.add_trace(go.Bar(
+                orientation="h", base=ix["IDX_START"], y=iy, width=0.62,
+                x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
+                marker=dict(color="rgba(109,79,194,0.16)", cornerradius=5,
+                            line=dict(color="rgba(109,79,194,0.35)", width=1)),
+                hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
+                               f"Roll day <b>{fmt(d)}</b><extra></extra>"
+                               for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
+            fig.add_trace(go.Scatter(
+                x=ix["IDX"], y=iy, mode="markers", hoverinfo="skip",
+                marker=dict(symbol="line-ns", size=17, line=dict(color=EV_COLOR["IDX"], width=3))))
+
+        # notice window: solid rounded navy bar
+        dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=1))
+        fig.add_trace(go.Bar(
+            orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut_y, width=0.4,
+            marker=dict(color=NAVY, cornerradius=5, line_width=0),
+            hovertemplate=[f"<b>{r.contract}</b> · {COMMODITY_LABELS[r.commodity]}<br>FND {fmt(r.FND)}<br>"
+                           f"LTD {fmt(r.LTD)}" + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
+                           + "<extra></extra>" for r in fut.itertuples()]))
+
+        # option expiries sit on the hairline of their underlying
+        if "OPT" in (evsel or []):
+            o = opt[opt["underlying_future"].isin(pos)]
+            fig.add_trace(go.Scatter(
+                x=o["LTD"], y=o["underlying_future"].map(pos), mode="markers",
+                marker=dict(symbol="triangle-up", size=8, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u} · {fmt(d)}<extra></extra>"
+                               for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
+
+        # notice-day markers with a white halo; LTD drawn last so it is never hidden by LND
+        for k, size in [("LND", 9), ("FND", 10), ("LTD", 12)]:
+            if k not in (evsel or []):
+                continue
+            s = fut.dropna(subset=[k])
+            fig.add_trace(go.Scatter(
+                x=s[k], y=s["contract"].map(pos), mode="markers",
+                marker=dict(symbol=EV_SYMBOL[k], size=size, color=EV_COLOR[k], line=dict(color="#ffffff", width=2)),
+                hovertemplate=[f"<b>{c}</b> · {EVENTS[k][1]}<br>{fmt(d)}<extra></extra>"
+                               for c, d in zip(s["contract"], s[k])]))
+
+        # today: thin navy rule with a pill label
+        t = pd.Timestamp(today)
+        fig.add_shape(type="line", x0=t, x1=t, yref="paper", y0=0, y1=1,
+                      line=dict(color="rgba(10,36,99,0.55)", width=1.2))
+        fig.add_annotation(x=t, yref="paper", y=1, text=" Today ", showarrow=False, yanchor="bottom",
+                           bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
+
+        style_fig(fig, 30 * len(labels) + 70)
+        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=8, r=12, t=40, b=8))
+        fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
+                         gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
+        fig.update_yaxes(tickmode="array", tickvals=list(range(len(labels))), ticktext=ticks,
+                         range=[len(labels) - 0.5, -0.5], tickfont=dict(size=11))
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 with tab_roll:
@@ -486,7 +534,9 @@ with tab_roll:
         st.markdown(
             '<div class="lgd">'
             '<span><i style="background:#0a2463;width:18px"></i>Notice window (FND → LND)</span>'
-            '<span style="color:#6d4fc2">&#9660;</span><span style="margin-left:-12px">Index roll (5th bd)</span>'
+            '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
+            'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
+            '<span><i style="background:#6d4fc2;width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
             '<span style="color:#0f92a8">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
             '<span><i style="background:#e8b4b4;width:2px;height:12px;border-radius:0"></i>Exchange holiday</span>'
             '</div>', unsafe_allow_html=True)
@@ -530,13 +580,19 @@ with tab_roll:
             textfont=dict(size=9.5, color="#5a6688"), hoverinfo="skip"))
 
         if "IDX" in (evsel or []):
-            ix = fut.dropna(subset=["IDX"])
-            ix = ix[ix["IDX"].between(span0, span1)]
+            ix = fut.dropna(subset=["IDX_START"])
+            ix = ix[(ix["IDX_END"] >= span0) & (ix["IDX_START"] <= span1)]
+            fig2.add_trace(go.Bar(
+                orientation="h", base=ix["IDX_START"], y=ix["commodity"].map(yi), width=0.5,
+                x=(ix["IDX_END"] - ix["IDX_START"]).dt.total_seconds() * 1000,
+                marker=dict(color="rgba(109,79,194,0.16)", cornerradius=5,
+                            line=dict(color="rgba(109,79,194,0.35)", width=1)),
+                hovertemplate=[f"<b>{c}</b> · Index roll window<br>{fmt(a)} → {fmt(b)}<br>"
+                               f"Roll day <b>{fmt(d)}</b><extra></extra>"
+                               for c, a, b, d in zip(ix["contract"], ix["IDX_START"], ix["IDX_END"], ix["IDX"])]))
             fig2.add_trace(go.Scatter(
-                x=ix["IDX"], y=ix["commodity"].map(yi), mode="markers",
-                marker=dict(symbol="triangle-down", size=10, color=EV_COLOR["IDX"], line=dict(color="#ffffff", width=1.5)),
-                hovertemplate=[f"<b>{c}</b> · Index roll<br>{fmt(d)}<extra></extra>"
-                               for c, d in zip(ix["contract"], ix["IDX"])]))
+                x=ix["IDX"], y=ix["commodity"].map(yi), mode="markers", hoverinfo="skip",
+                marker=dict(symbol="line-ns", size=15, line=dict(color=EV_COLOR["IDX"], width=3))))
         if "OPT" in (evsel or []):
             o = opt[opt["commodity"].isin(rows_c)]
             fig2.add_trace(go.Scatter(

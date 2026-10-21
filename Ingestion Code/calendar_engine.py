@@ -539,10 +539,11 @@ def generate_futures_calendar(commodity: str, start_year: int, end_year: int) ->
             else:
                 lnd = cfg.lnd_rule(year, m, bday)
 
-            idx = pd.NaT
+            idx = idx_s = idx_e = pd.NaT
             if cfg.index_months and month_code in cfg.index_months:
                 py, pm = preceding_month(year, m)
                 idx = nth_bd(py, pm, 5, bday)
+                idx_s, idx_e = (idx - 5 * bday).normalize(), (idx + 5 * bday).normalize()
 
             rows.append({
                 "commodity": commodity,
@@ -555,6 +556,8 @@ def generate_futures_calendar(commodity: str, start_year: int, end_year: int) ->
                 "LTD": ltd,
                 "LND": lnd,
                 "IDX": idx,
+                "IDX_START": idx_s,   # IR - 5 business days
+                "IDX_END": idx_e,     # IR + 5 business days
             })
     df = pd.DataFrame(rows).sort_values("LTD").reset_index(drop=True)
     if cfg.list_after_positions is not None:
