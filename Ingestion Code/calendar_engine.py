@@ -233,6 +233,9 @@ class CommodityConfig:
     # list_after_positions -> bday after the LTD of the contract N positions earlier (ICE Europe).
     list_years_ahead: Optional[int] = None
     list_after_positions: Optional[int] = None
+    # Commodity index roll (GSCI/BCOM style): 5th business day of the month before
+    # expiry, for the months the indices hold. None = not an index commodity here.
+    index_months: Optional[List[str]] = None
 
 
 COMMODITY_CONFIG = {
@@ -247,6 +250,7 @@ COMMODITY_CONFIG = {
         # LND: 7 bdays before last bd of delivery month.
         lnd_rule=ltd_last_bd_minus(7),
         list_years_ahead=3,
+        index_months=["H", "K", "N", "U", "Z"],
     ),
     "RC": CommodityConfig(
         name="Robusta Coffee", exchange="ICE Futures Europe",
@@ -272,6 +276,7 @@ COMMODITY_CONFIG = {
         # LND: 10 bdays before last bd of delivery month.
         lnd_rule=ltd_last_bd_minus(10),
         list_years_ahead=2,
+        index_months=["H", "K", "N", "U", "Z"],
     ),
     "LCC": CommodityConfig(
         name="London Cocoa", exchange="ICE Futures Europe",
@@ -296,6 +301,7 @@ COMMODITY_CONFIG = {
         # LND: first business day after LTD (same formula/value as FND).
         lnd_rule="after_ltd",
         list_years_ahead=3,
+        index_months=["H", "K", "N", "V"],
     ),
     "LSU": CommodityConfig(
         name="White Sugar No. 5", exchange="ICE Futures Europe",
@@ -323,6 +329,7 @@ COMMODITY_CONFIG = {
         # LND: same inclusive-count convention, confirmed as 12 -> 11 steps back.
         lnd_rule=ltd_last_bd_minus(11),
         list_years_ahead=3,
+        index_months=["H", "K", "N", "Z"],   # indices skip October cotton
     ),
 }
 
@@ -532,6 +539,11 @@ def generate_futures_calendar(commodity: str, start_year: int, end_year: int) ->
             else:
                 lnd = cfg.lnd_rule(year, m, bday)
 
+            idx = pd.NaT
+            if cfg.index_months and month_code in cfg.index_months:
+                py, pm = preceding_month(year, m)
+                idx = nth_bd(py, pm, 5, bday)
+
             rows.append({
                 "commodity": commodity,
                 "contract": f"{commodity}{month_code}{str(year)[-2:]}",
@@ -542,6 +554,7 @@ def generate_futures_calendar(commodity: str, start_year: int, end_year: int) ->
                 "FND": fnd,
                 "LTD": ltd,
                 "LND": lnd,
+                "IDX": idx,
             })
     df = pd.DataFrame(rows).sort_values("LTD").reset_index(drop=True)
     if cfg.list_after_positions is not None:

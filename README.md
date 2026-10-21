@@ -48,6 +48,9 @@ published calendars (`Validate/`).
   when the day-of-week rule leaves fewer than 4 trading days before FND,
   LTD moves to FND minus 5 business days (`ltd_adjusted = True`).
 - **Holiday LTDs** roll back to the previous business day (e.g. Good Friday).
+- **Index roll (KC/CC/SB/CT)**: 5th business day of the month before expiry on the
+  ICE US calendar (Good Friday / Labor Day push it a day). Cotton October is
+  skipped, as the indices don't hold it.
 - **CT serial options** expire on the 3rd Friday of the month *before* the
   option month.
 - **Futures listing (FTD)**: ICE US = first business day of the month after

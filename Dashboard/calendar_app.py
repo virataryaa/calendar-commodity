@@ -28,6 +28,7 @@ EVENTS = {                      # key: (label, long name)
     "LTD": ("LTD", "Last Trading Day"),
     "LND": ("LND", "Last Notice Day"),
     "OPT": ("OPT", "Option Expiry"),
+    "IDX": ("IDX", "Index Roll"),
 }
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -125,6 +126,7 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
 .chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
 .chip.OPT { border-color: #b3dbe4; } .chip.OPT .t { background: #0f92a8; }
+.chip.IDX { border-color: #d3caf0; } .chip.IDX .t { background: #6d4fc2; }
 
 /* Exchange holidays */
 .mg-day.closed { background: repeating-linear-gradient(135deg, #fbf3f3, #fbf3f3 6px, #f7eaea 6px, #f7eaea 12px); }
@@ -165,7 +167,7 @@ def load_events() -> pd.DataFrame:
         opt = DB_DIR / f"{c.lower()}_options_calendar.parquet"
         if fut.exists():
             f = pd.read_parquet(fut)
-            for ev in ["FND", "LTD", "LND"]:
+            for ev in [e for e in ["FND", "LTD", "LND", "IDX"] if e in f]:
                 rows.append(pd.DataFrame({"commodity": c, "code": f["contract"], "event": ev, "date": f[ev]}))
         if opt.exists():
             o = pd.read_parquet(opt)
@@ -218,7 +220,7 @@ def chip_pop(r, d: date, today: date, det: dict) -> str:
     else:
         f = det.get((r.code, "fut"), {})
         rows = "".join(_row(EVENTS.get(k, (k, "First Trading Day"))[1], _d(f.get(k)), k == r.event)
-                       for k in ["FTD", "FND", "LTD", "LND"])
+                       for k in ["FTD", "FND", "LTD", "LND", "IDX"] if k != "IDX" or pd.notna(f.get(k)))
     return f'<div class="pop">{head}{rows}<div class="pf">{_when(d, today)}</div></div>'
 
 
@@ -320,8 +322,8 @@ with st.sidebar:
 # ---------------------------------------------------------------------------------------------
 # main: Calendar | Timeline
 # ---------------------------------------------------------------------------------------------
-EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#c94a4a", "OPT": "#0f92a8"}
-EV_SYMBOL = {"FND": "circle", "LTD": "diamond", "LND": "square", "OPT": "triangle-up"}
+EV_COLOR = {"FND": "#1f9d6f", "LTD": "#c98a1f", "LND": "#c94a4a", "OPT": "#0f92a8", "IDX": "#6d4fc2"}
+EV_SYMBOL = {"FND": "circle", "LTD": "diamond", "LND": "square", "OPT": "triangle-up", "IDX": "triangle-down"}
 NAVY, GRID, AXIS = "#0a2463", "rgba(10,36,99,0.07)", "#8a94a8"
 
 ev = events[events["commodity"].isin(comms or []) & events["event"].isin(evsel or [])]
@@ -437,7 +439,7 @@ with tab_tl:
                                  hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=win_x, y=win_y, mode="lines", line=dict(color="rgba(10,36,99,0.28)", width=9),
                                  hoverinfo="skip"))
-        for k in [e for e in ["FND", "LTD", "LND"] if e in (evsel or [])]:
+        for k in [e for e in ["IDX", "FND", "LTD", "LND"] if e in (evsel or [])]:
             s = fut.dropna(subset=[k])
             fig.add_trace(go.Scatter(
                 x=s[k], y=s["contract"], mode="markers",
@@ -460,42 +462,88 @@ with tab_tl:
         fig.update_yaxes(categoryorder="array", categoryarray=labels, autorange="reversed", tickfont=dict(size=10))
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
-        # 2. Roll-window strip -------------------------------------------------------------------
+        # 2. Roll windows -------------------------------------------------------------------------
         st.markdown('<div class="sec">Roll Windows</div>'
-                    '<div class="card-desc">Each contract expiry window, all markets on one axis.</div>',
+                    '<div class="card-desc">Notice window per contract, with index roll, option expiry and holidays.</div>',
                     unsafe_allow_html=True)
+        st.markdown(
+            '<div class="lgd">'
+            '<span><i style="background:#0a2463;width:18px"></i>Notice window (FND → LND)</span>'
+            '<span style="color:#6d4fc2">&#9660;</span><span style="margin-left:-12px">Index roll (5th bd)</span>'
+            '<span style="color:#0f92a8">&#9650;</span><span style="margin-left:-12px">Option expiry</span>'
+            '<span><i style="background:#e8b4b4;width:2px;height:12px;border-radius:0"></i>Exchange holiday</span>'
+            '</div>', unsafe_allow_html=True)
         rows_c = [c for c in COMMODITY_LABELS if c in set(fut["commodity"])]
-        ylab = {c: f"{c} · {COMMODITY_LABELS[c]}" for c in rows_c}
+        yi = {c: i for i, c in enumerate(rows_c)}
+        ex_of = {c: e for e, cs in EXCHANGES.items() for c in cs}
+        span0, span1 = xrange
         fig2 = go.Figure()
-        bx, by, tx, ty, tt, th = [], [], [], [], [], []
-        for r in fut.itertuples():
-            bx += [r.w0, r.w1, None]
-            by += [ylab[r.commodity], ylab[r.commodity], None]
-            tx.append(r.w0 + (r.w1 - r.w0) / 2)
-            ty.append(ylab[r.commodity])
-            tt.append(r.contract[len(r.commodity):])
-            th.append(f"<b>{r.contract}</b><br>FND {fmt(r.FND)}<br>LTD {fmt(r.LTD)}"
-                      + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "") + "<extra></extra>")
-        fig2.add_trace(go.Scatter(x=bx, y=by, mode="lines", line=dict(color="rgba(10,36,99,0.55)", width=16),
-                                  hoverinfo="skip"))
-        fig2.add_trace(go.Scatter(x=tx, y=ty, mode="text", text=tt, textposition="top center",
-                                  textfont=dict(size=9.5, color="#1a1a2e"), hovertemplate=th))
+
+        for c, i in yi.items():
+            if i % 2 == 0:
+                fig2.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=i - 0.5, y1=i + 0.5,
+                               fillcolor="#f6f7fb", line_width=0, layer="below")
+
+        # exchange holidays: a faint full-height tick in each affected row
+        hw = holidays[holidays["date"].between(span0, span1)]
+        hx, hy, hh = [], [], []
+        for c, i in yi.items():
+            for r in hw[hw["exchange"] == ex_of[c]].itertuples():
+                hx.append(r.date)
+                hy.append(i)
+                hh.append(f"<b>{r.holiday}</b><br>{ex_of[c]} closed · {fmt(r.date)}<extra></extra>")
+        if hx:
+            fig2.add_trace(go.Scatter(x=hx, y=hy, mode="markers", hovertemplate=hh,
+                                      marker=dict(symbol="line-ns", size=30, color="rgba(201,74,74,0)",
+                                                  line=dict(color="rgba(201,74,74,0.28)", width=2))))
+
+        # notice windows as rounded bars (min 2 days wide so one-day windows stay visible)
+        dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=2))
+        fig2.add_trace(go.Bar(
+            orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut["commodity"].map(yi),
+            width=0.3, marker=dict(color=NAVY, cornerradius=4, line_width=0), opacity=0.85,
+            hovertemplate=[f"<b>{r.contract}</b><br>FND {fmt(r.FND)}<br>LTD {fmt(r.LTD)}"
+                           + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
+                           + (f"<br>Index roll {fmt(r.IDX)}" if pd.notna(r.IDX) else "") + "<extra></extra>"
+                           for r in fut.itertuples()]))
+
+        # contract labels above each bar, only when the label's anchor is inside the visible window
+        lab = fut[(fut["w0"] + (fut["w1"] - fut["w0"]) / 2).between(span0 + pd.Timedelta(days=6),
+                                                                     span1 - pd.Timedelta(days=6))]
+        fig2.add_trace(go.Scatter(
+            x=lab["w0"] + (lab["w1"] - lab["w0"]) / 2, y=lab["commodity"].map(yi) - 0.3, mode="text",
+            text=[c[len(m):] for c, m in zip(lab["contract"], lab["commodity"])],
+            textfont=dict(size=9.5, color="#5a6688"), hoverinfo="skip"))
+
+        if "IDX" in (evsel or []):
+            ix = fut.dropna(subset=["IDX"])
+            ix = ix[ix["IDX"].between(span0, span1)]
+            fig2.add_trace(go.Scatter(
+                x=ix["IDX"], y=ix["commodity"].map(yi), mode="markers",
+                marker=dict(symbol="triangle-down", size=10, color=EV_COLOR["IDX"], line=dict(color="#ffffff", width=1.5)),
+                hovertemplate=[f"<b>{c}</b> · Index roll<br>{fmt(d)}<extra></extra>"
+                               for c, d in zip(ix["contract"], ix["IDX"])]))
         if "OPT" in (evsel or []):
             o = opt[opt["commodity"].isin(rows_c)]
             fig2.add_trace(go.Scatter(
-                x=o["LTD"], y=o["commodity"].map(ylab), mode="markers",
-                marker=dict(symbol="triangle-up", size=8, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1)),
-                hovertemplate=[f"<b>{c}</b> option expiry<br>{fmt(d)}<extra></extra>"
-                               for c, d in zip(o["option"], o["LTD"])]))
+                x=o["LTD"], y=o["commodity"].map(yi) + 0.3, mode="markers",
+                marker=dict(symbol="triangle-up", size=7, color=EV_COLOR["OPT"], line=dict(color="#ffffff", width=1)),
+                hovertemplate=[f"<b>{c}</b> · {t} option expiry<br>on {u} · {fmt(d)}<extra></extra>"
+                               for c, t, u, d in zip(o["option"], o["type"], o["underlying_future"], o["LTD"])]))
+
         add_today(fig2)
-        style_fig(fig2, 54 * len(rows_c) + 60)
-        fig2.update_xaxes(range=xrange)
-        fig2.update_yaxes(categoryorder="array", categoryarray=[ylab[c] for c in rows_c], autorange="reversed")
+        style_fig(fig2, 62 * len(rows_c) + 50)
+        fig2.update_layout(bargap=0, barmode="overlay")
+        fig2.update_xaxes(range=xrange, type="date", showline=False)
+        fig2.update_yaxes(tickvals=list(yi.values()), range=[len(rows_c) - 0.5, -0.5],
+                          ticktext=[f"<b>{c}</b>  <span style='color:#8a94a8'>{COMMODITY_LABELS[c]}</span>"
+                                    for c in rows_c], tickfont=dict(size=11))
         st.plotly_chart(fig2, width="stretch", config={"displayModeBar": False})
 
         # 3. Weekly event heatmap ----------------------------------------------------------------
         st.markdown('<div class="sec">Event Heatmap</div>'
                     '<div class="card-desc">Events per week; darker = busier.</div>', unsafe_allow_html=True)
+        ylab = {c: f"{c} · {COMMODITY_LABELS[c]}" for c in rows_c}
         e = ev[ev["date"].between(win0, win1)].copy()
         e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
         weeks = pd.date_range(win0 - pd.Timedelta(days=win0.weekday()), win1, freq="7D")
