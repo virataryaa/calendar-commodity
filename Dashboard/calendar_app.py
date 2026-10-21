@@ -619,30 +619,52 @@ with tab_roll:
 with tab_heat:
     if has_data():
         # 3. Weekly event heatmap ----------------------------------------------------------------
-        st.markdown('<div class="card-desc">Events per week; darker = busier.</div>', unsafe_allow_html=True)
-        e = ev[ev["date"].between(win0, win1)].copy()
+        # its own event filter, independent of the sidebar's
+        st.markdown('<div class="sb-label" style="margin-top:2px">Show in heatmap</div>', unsafe_allow_html=True)
+        heat_ev = st.pills("Show in heatmap", list(EVENTS), selection_mode="multi", default=list(EVENTS),
+                           format_func=lambda k: EVENTS[k][1], key="heat_ev", label_visibility="collapsed") or []
+        st.markdown('<div class="card-desc">Events per week; darker = busier. Hover a cell for the detail.</div>',
+                    unsafe_allow_html=True)
+        e = events[events["commodity"].isin(rows_c) & events["event"].isin(heat_ev)
+                   & events["date"].between(win0, win1)].copy()
         e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
         weeks = pd.date_range(win0 - pd.Timedelta(days=win0.weekday()), win1, freq="7D")
+        muted = "#8a94a8"
         z, txt, hov = [], [], []
         for c in rows_c:
             zr, tr, hr = [], [], []
+            head = (f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
+                    f"<span style='color:#a3abbd'>{c}</span>")
             for w in weeks:
-                g = e[(e["commodity"] == c) & (e["week"] == w)].sort_values("date")
-                zr.append(len(g))
-                tr.append(str(len(g)) if len(g) else "")
-                lines = "<br>".join(f"{r.code} {r.event} · {r.date:%a %d %b}" for r in g.itertuples())
-                hr.append(f"<b>{ylab[c]}</b> · week of {w:%d %b %Y}<br>" + (lines or "no events"))
+                g = e[(e["commodity"] == c) & (e["week"] == w)].sort_values(["date", "event"])
+                n = len(g)
+                zr.append(n)
+                tr.append(str(n) if n else "")
+                sub = f"<span style='color:{muted}'>Week of {w:%a %d %b} – {w + pd.Timedelta(days=6):%a %d %b %Y}</span>"
+                if n:
+                    lines = "<br>".join(
+                        f"<span style='color:{EV_COLOR[r.event]}'>●</span>  <b>{r.code[len(c):]}</b>  "
+                        f"{EVENTS[r.event][1]}  <span style='color:{muted}'>{r.date:%a %d %b}</span>"
+                        for r in g.itertuples())
+                    foot = f"<span style='color:{muted}'>{n} event{'s' * (n != 1)}</span>"
+                    hr.append(f"{head}<br>{sub}<br><br>{lines}<br><br>{foot}")
+                else:
+                    hr.append(f"{head}<br>{sub}<br><br><span style='color:{muted}'>No events this week</span>")
             z.append(zr)
             txt.append(tr)
             hov.append(hr)
         fig3 = go.Figure(go.Heatmap(
-            z=z, x=weeks, y=[ylab[c] for c in rows_c], text=txt, texttemplate="%{text}",
-            textfont=dict(size=10), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
-            colorscale=[[0, "#f4f6fb"], [0.001, "#c9d3ea"], [1, NAVY]], zmin=0, xgap=2, ygap=2, showscale=False))
+            z=z, x=weeks, y=list(range(len(rows_c))), text=txt, texttemplate="%{text}",
+            textfont=dict(size=10.5), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
+            colorscale=[[0, "#f4f6fb"], [0.001, "#c9d3ea"], [1, NAVY]], zmin=0, xgap=3, ygap=3, showscale=False))
         add_today(fig3)
-        style_fig(fig3, 40 * len(rows_c) + 60)
+        style_fig(fig3, 46 * len(rows_c) + 70)
+        fig3.update_layout(hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.18)", align="left",
+                                           font=dict(family="Inter, sans-serif", size=11.5, color="#1d1d1f")))
         fig3.update_xaxes(range=xrange, showgrid=False)
-        fig3.update_yaxes(autorange="reversed")
+        fig3.update_yaxes(tickmode="array", tickvals=list(range(len(rows_c))), range=[len(rows_c) - 0.5, -0.5],
+                          ticktext=[f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
+                                    f"<span style='color:#a3abbd'>{c}</span>" for c in rows_c], tickfont=dict(size=11))
         st.plotly_chart(fig3, width="stretch", config={"displayModeBar": False})
 
 with tab_hol:
