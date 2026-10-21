@@ -559,30 +559,33 @@ with tab_gantt:
     if has_data():
         # rows per commodity: its Options line, then its contracts (numeric y so marks can be placed exactly);
         # the commodity name is drawn once, centred down the left of its block like a merged cell
-        labels, ticks, groups = [], [], []
-        for c, g in fut.groupby("commodity", sort=False):
-            first = len(labels)
-            if "OPT" in (evsel or []):
-                labels.append(f"opt#{c}")
-                ticks.append(f"<span style='color:{EV_COLOR['OPT']}'>Options</span>")
-            for k in g["contract"]:
-                labels.append(k)
-                ticks.append(f"<span style='color:#5a6688'>{k[len(c):]}</span>")
-            groups.append((first, len(labels) - 1))
-        pos = {lab: i for i, lab in enumerate(labels)}
+        # commodities are separated by a breathing gap (GAP rows of empty space), not by lines
+        GAP = 0.7
+        labels, ticks, tvals, groups = [], [], [], []
+        y = 0.0
+        for gi, (c, g) in enumerate(fut.groupby("commodity", sort=False)):
+            y += GAP if gi else 0
+            first = y
+            rows = ([(f"opt#{c}", f"<span style='color:{EV_COLOR['OPT']}'>Options</span>")]
+                    if "OPT" in (evsel or []) else [])
+            rows += [(k, f"<span style='color:#5a6688'>{k[len(c):]}</span>") for k in g["contract"]]
+            for lab, tick in rows:
+                labels.append(lab)
+                ticks.append(tick)
+                tvals.append(y)
+                y += 1
+            groups.append((first, y - 1))
+        pos = dict(zip(labels, tvals))
+        y_end = y - 1
         fut_y = fut["contract"].map(pos)
         span0, span1 = xrange
         fig = go.Figure()
 
-        # white background; between commodities a fine dotted gold rule, broken by a small diamond at centre
+        # each block: a slim rounded navy rail in the label gutter, tying the name to its rows
         for n, ((a, b), c) in enumerate(zip(groups, fut["commodity"].unique())):
-            if n:
-                for x0_, x1_ in [(0, 0.485), (0.515, 1)]:
-                    fig.add_shape(type="line", xref="paper", x0=x0_, x1=x1_, y0=a - 0.5, y1=a - 0.5,
-                                  line=dict(color="rgba(176,141,87,0.45)", width=1, dash="dot"))
-                fig.add_annotation(xref="paper", x=0.5, y=a - 0.5, text="◆", showarrow=False,
-                                   font=dict(size=7, color="rgba(176,141,87,0.75)"), yanchor="middle")
-            fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-62, y=(a + b) / 2, yanchor="middle",
+            fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-56, x1=-56,
+                          y0=a - 0.32, y1=b + 0.32, line=dict(color="rgba(10,36,99,0.28)", width=3))
+            fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-66, y=(a + b) / 2, yanchor="middle",
                                showarrow=False, align="right",
                                text=f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b><br>"
                                     f"<span style='color:#a3abbd'>{c}</span>", font=dict(size=11.5))
@@ -660,12 +663,12 @@ with tab_gantt:
         fig.add_annotation(x=t, yref="paper", y=0, text=f" Today · {today:%a %d %b %Y} ", showarrow=False, yanchor="top", yshift=-4,
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
-        style_fig(fig, 30 * len(labels) + 70)
+        style_fig(fig, int(30 * (y_end + 1)) + 74)
         fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=150, r=12, t=40, b=34))
         fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
-        fig.update_yaxes(tickmode="array", tickvals=list(range(len(labels))), ticktext=ticks,
-                         range=[len(labels) - 0.5, -0.5], tickfont=dict(size=11))
+        fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
+                         range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
         month_header(fig, *xrange)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
