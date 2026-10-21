@@ -111,3 +111,13 @@ for label, matched, mismatches in results:
     print(f"{label:<16}{matched:>8}  {len(mismatches)}")
     for m in mismatches:
         print(f"    {m}")
+
+# ICE US softs holiday circular (Cocoa/Coffee/Cotton/FCOJ/Sugar column).
+ref_hol = pd.read_csv(VALIDATE_DIR / "ICE US holidays 2026.csv", parse_dates=["date"])
+hol = pd.read_parquet(DB_DIR / "holidays.parquet")
+ny = set(hol.loc[hol["exchange"] == "New York", "date"])
+hol_bad = [f"{r.holiday} {r.date.date()}: ICE {r.softs}, ours {'closed' if r.date in ny else 'open'}"
+           for r in ref_hol.itertuples() if (r.date in ny) != (r.softs == "closed")]
+print(f"{'NY holidays':<16}{len(ref_hol) - len(hol_bad):>8}  {len(hol_bad)}")
+for m in hol_bad:
+    print(f"    {m}")

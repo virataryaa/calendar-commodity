@@ -33,6 +33,7 @@ from pandas.tseries.holiday import (
     USMemorialDay, USLaborDay, USThanksgivingDay,
 )
 from pandas.tseries.offsets import CustomBusinessDay
+from dateutil.easter import easter
 
 # ── PATHS ────────────────────────────────────────────────────────────────────
 CODE_DIR = Path(__file__).resolve().parent
@@ -81,39 +82,51 @@ def _christmas_boxing_day_holidays(year: int) -> list:
     return pairs[wd]
 
 
-def _build_uk_holidays(start_year: int = 2004, end_year: int = 2040) -> pd.DatetimeIndex:
-    base = AbstractHolidayCalendar(rules=[
-        Holiday("NewYearsDay", month=1,  day=1,  observance=sunday_to_monday),
-        GoodFriday,
-        EasterMonday,
-    ])
-    hols = list(base.holidays(
-        start=pd.Timestamp(f"{start_year}-01-01"),
-        end=pd.Timestamp(f"{end_year}-12-31"),
-    ))
-    for year in range(start_year, end_year + 1):
-        hols.extend(_christmas_boxing_day_holidays(year))
-    for year in range(start_year, end_year + 1):
-        # Early May bank holiday: first Monday of May.
-        d = pd.Timestamp(year, 5, 1)
-        while d.dayofweek != 0:
-            d += pd.Timedelta(days=1)
-        hols.append(d)
-        # Spring bank holiday: last Monday of May.
-        d = pd.Timestamp(year, 5, cal_module.monthrange(year, 5)[1])
-        while d.dayofweek != 0:
-            d -= pd.Timedelta(days=1)
-        hols.append(d)
-        # Summer bank holiday: last Monday of August.
-        d = pd.Timestamp(year, 8, cal_module.monthrange(year, 8)[1])
-        while d.dayofweek != 0:
-            d -= pd.Timedelta(days=1)
-        hols.append(d)
-    return pd.DatetimeIndex(sorted(set(hols)))
+def _first_monday(year, month):
+    d = pd.Timestamp(year, month, 1)
+    return d + pd.Timedelta(days=(7 - d.dayofweek) % 7)
+
+
+def _last_monday(year, month):
+    d = pd.Timestamp(year, month, cal_module.monthrange(year, month)[1])
+    return d - pd.Timedelta(days=d.dayofweek)
+
+
+def uk_holiday_list(start_year: int = 2004, end_year: int = 2040) -> list:
+    """(date, name) for every ICE Futures Europe softs closure."""
+    out = []
+    for y in range(start_year, end_year + 1):
+        nyd = sunday_to_monday(pd.Timestamp(y, 1, 1))
+        if nyd.dayofweek < 5:
+            out.append((nyd, "New Year's Day"))
+        e = pd.Timestamp(easter(y))
+        out += [(e - pd.Timedelta(days=2), "Good Friday"), (e + pd.Timedelta(days=1), "Easter Monday"),
+                (_first_monday(y, 5), "Early May Bank Holiday"), (_last_monday(y, 5), "Spring Bank Holiday"),
+                (_last_monday(y, 8), "Summer Bank Holiday")]
+        xmas, boxing = _christmas_boxing_day_holidays(y)
+        out += [(xmas, "Christmas Day"), (boxing, "Boxing Day")]
+    return out
+
+
+US_HOLIDAY_NAMES = {
+    "NewYearsDay": "New Year's Day", "Birthday of Martin Luther King, Jr.": "Martin Luther King Day",
+    "Washington's Birthday": "Presidents Day", "GoodFriday": "Good Friday", "Memorial Day": "Memorial Day",
+    "Juneteenth": "Juneteenth", "IndependenceDay": "Independence Day", "Labor Day": "Labor Day",
+    "Thanksgiving Day": "Thanksgiving Day", "Christmas": "Christmas Day",
+}
+
+
+def holiday_table(start_year: int, end_year: int) -> pd.DataFrame:
+    """One row per (date, exchange) closure: New York = ICE US softs, Europe = ICE Futures Europe softs."""
+    us = USExchangeHolidayCalendar().holidays(pd.Timestamp(start_year, 1, 1), pd.Timestamp(end_year, 12, 31),
+                                              return_name=True)
+    rows = [(d, US_HOLIDAY_NAMES.get(n, n), "New York") for d, n in us.items()]
+    rows += [(d, n, "Europe") for d, n in uk_holiday_list(start_year, end_year)]
+    return pd.DataFrame(rows, columns=["date", "holiday", "exchange"]).sort_values(["date", "exchange"]).reset_index(drop=True)
 
 
 US_BDAY = CustomBusinessDay(calendar=USExchangeHolidayCalendar())
-UK_BDAY = CustomBusinessDay(holidays=_build_uk_holidays())
+UK_BDAY = CustomBusinessDay(holidays=[d for d, _ in uk_holiday_list()])
 BDAY_CAL = {"US": US_BDAY, "UK": UK_BDAY}
 
 MONTH_NAME = {
@@ -628,3 +641,6 @@ if __name__ == "__main__":
     commodities = [args.commodity] if args.commodity else list(COMMODITY_CONFIG.keys())
     for c in commodities:
         build(c, args.start_year, args.end_year)
+    hol = holiday_table(args.start_year, args.end_year)
+    hol.to_parquet(DB_DIR / "holidays.parquet", index=False)
+    print(f"Holidays: {len(hol)} closures (New York + Europe) -> {DB_DIR}")

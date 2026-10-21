@@ -16,7 +16,9 @@ published calendars (`Validate/`).
   the ICE reference CSVs in `Validate/` (`{CODE} F.csv` futures,
   `{CODE} O.csv` options). Run after any rule change.
 - **`Database/`**: `{commodity}_futures_calendar.parquet`,
-  `{commodity}_options_calendar.parquet` (2023-2030 by default).
+  `{commodity}_options_calendar.parquet` (2023-2030 by default), and
+  `holidays.parquet` (New York = KC/CC/SB/CT, Europe = RC/LCC/LSU closures;
+  New York 2026 checked against ICE's holiday circular).
 - **`Dashboard/calendar_app.py`**: Streamlit viewer, futures timeline + table
   and options table.
 - **`Automator/`**: `run.bat` (rebuild + git push + email), `notify.py`.

@@ -20,6 +20,8 @@ COMMODITY_LABELS = {
     "LCC": "London Cocoa", "SB": "Sugar No. 11", "LSU": "White Sugar No. 5",
     "CT": "Cotton No. 2",
 }
+EXCHANGES = {"New York": ["KC", "CC", "SB", "CT"], "Europe": ["RC", "LCC", "LSU"]}
+EX_SHORT = {"New York": "NY", "Europe": "EU"}
 EVENTS = {                      # key: (label, long name)
     "FND": ("FND", "First Notice Day"),
     "LTD": ("LTD", "Last Trading Day"),
@@ -104,6 +106,20 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .chip.LTD { border-color: #ecd6ad; } .chip.LTD .t { background: #c98a1f; }
 .chip.LND { border-color: #ecc4c4; } .chip.LND .t { background: #c94a4a; }
 .chip.OPT { border-color: #b9dce2; } .chip.OPT .t { background: #1f8a9c; }
+
+/* Exchange holidays */
+.mg-day.closed { background: repeating-linear-gradient(135deg, #fbf3f3, #fbf3f3 6px, #f7eaea 6px, #f7eaea 12px); }
+.hol { font-size: 9.5px; font-weight: 600; color: #8a2f2f; background: #f6dede; border-radius: 6px;
+       padding: 2px 6px; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hol b { color: #ffffff; background: #c94a4a; border-radius: 4px; padding: 0 4px; margin-right: 4px; font-size: 8.5px; }
+
+/* Holiday table */
+.ht { border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 12.5px; background: #ffffff;
+      border: 1px solid #e3e7f0; border-radius: 12px; overflow: hidden; max-width: 760px; width: 100%; }
+.ht th { background: #cfd8ec; color: #0a2463; font-weight: 600; text-align: left; padding: 7px 12px; }
+.ht td { padding: 6px 12px; border-top: 1px solid #eef0f6; color: #1a1a2e; }
+.ht td.x { font-weight: 600; color: #c94a4a; } .ht td.o { color: #8a94a8; }
+.ht tr.past td { color: #b4bccd; } .ht tr.past td.x { color: #dca5a5; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -132,9 +148,26 @@ def load_events() -> pd.DataFrame:
     return ev
 
 
-def month_card(year: int, month: int, ev: pd.DataFrame, today: date) -> str:
-    """One month as an HTML card: Mon–Sun grid, each day listing its event chips."""
+@st.cache_data(ttl=600)
+def load_holidays() -> pd.DataFrame:
+    h = pd.read_parquet(DB_DIR / "holidays.parquet")
+    h["date"] = pd.to_datetime(h["date"]).dt.normalize()
+    return h
+
+
+def holiday_tags(g: pd.DataFrame) -> str:
+    """One tag per holiday name; exchanges sharing it are merged (e.g. NY+EU Christmas)."""
+    tags = ""
+    for name, gg in g.groupby("holiday", sort=False):
+        ex = "+".join(EX_SHORT[e] for e in sorted(gg["exchange"], key=list(EX_SHORT).index))
+        tags += f'<div class="hol" title="{ex} closed · {name}"><b>{ex}</b>{name}</div>'
+    return tags
+
+
+def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today: date) -> str:
+    """One month as an HTML card: Mon–Sun grid, each day listing holidays then event chips."""
     by_day = {d.date(): g for d, g in ev.groupby("date")}
+    hol_by_day = {d.date(): g for d, g in hol.groupby("date")}
     order = {k: i for i, k in enumerate(EVENTS)}
     weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
     cells = [f'<div class="mg-dow{" we" if w in ("Sat", "Sun") else ""}">{w}</div>' for w in WEEKDAYS]
@@ -154,6 +187,10 @@ def month_card(year: int, month: int, ev: pd.DataFrame, today: date) -> str:
             if d == today:
                 cls.append("today")
             chips = ""
+            hg = hol_by_day.get(d)
+            if hg is not None and d.weekday() < 5:
+                cls.append("closed")
+                chips += holiday_tags(hg)
             g = by_day.get(d)
             if g is not None:
                 g = g.assign(o=g["event"].map(order)).sort_values(["o", "commodity", "code"])
@@ -173,18 +210,24 @@ def month_card(year: int, month: int, ev: pd.DataFrame, today: date) -> str:
 # sidebar
 # ---------------------------------------------------------------------------------------------
 events = load_events()
+holidays = load_holidays()
 today = date.today()
 
 with st.sidebar:
     st.markdown('<div class="sb-title">Commodity Calendar</div>'
-                '<div class="sb-caption">ICE softs FND, LTD, LND and option expiry dates.</div>',
+                '<div class="sb-caption">ICE softs FND, LTD, LND, option expiry and exchange holidays.</div>',
                 unsafe_allow_html=True)
+    st.markdown('<div class="sb-label">Exchange</div>', unsafe_allow_html=True)
+    exsel = st.pills("Exchange", list(EXCHANGES), selection_mode="multi",
+                     default=list(EXCHANGES), label_visibility="collapsed") or []
+    comm_opts = [c for e in exsel for c in EXCHANGES[e]]
     st.markdown('<div class="sb-label">Commodities</div>', unsafe_allow_html=True)
-    comms = st.pills("Commodities", list(COMMODITY_LABELS), selection_mode="multi",
-                     default=list(COMMODITY_LABELS), label_visibility="collapsed")
+    comms = st.pills("Commodities", comm_opts, selection_mode="multi", default=comm_opts,
+                     label_visibility="collapsed", key=f"comms_{'_'.join(exsel)}")
     st.markdown('<div class="sb-label">Events</div>', unsafe_allow_html=True)
     evsel = st.pills("Events", list(EVENTS), selection_mode="multi",
                      default=list(EVENTS), label_visibility="collapsed")
+    show_hol = st.toggle("Exchange holidays", value=True)
 
     first = pd.Timestamp(today.year, today.month, 1)
     months = [first + pd.DateOffset(months=k) for k in range(-12, 25)]
@@ -198,6 +241,7 @@ with st.sidebar:
 # month grid
 # ---------------------------------------------------------------------------------------------
 ev = events[events["commodity"].isin(comms or []) & events["event"].isin(evsel or [])]
+hol = holidays[holidays["exchange"].isin(exsel)] if show_hol else holidays.iloc[0:0]
 
 st.markdown('<div class="page-title">Month Grid</div>'
             '<div class="card-desc">Weekends shaded. Hover a chip for the full contract and date.</div>',
@@ -206,6 +250,7 @@ st.markdown(
     '<div class="lgd">'
     + "".join(f'<span><i style="background:{c}"></i>{EVENTS[k][1]}</span>'
               for k, c in [("FND", "#1f9d6f"), ("LTD", "#c98a1f"), ("LND", "#c94a4a"), ("OPT", "#1f8a9c")])
+    + '<span><i style="background:#f6dede;border:1px solid #c94a4a"></i>Exchange closed (NY / EU)</span>'
     + '<span><i style="background:#0a2463;border-radius:999px"></i>Today</span></div>',
     unsafe_allow_html=True,
 )
@@ -213,5 +258,26 @@ st.markdown(
 cards = []
 for k in range(n_months):
     m = start + pd.DateOffset(months=k)
-    cards.append(month_card(m.year, m.month, ev, today))
+    cards.append(month_card(m.year, m.month, ev, hol, today))
 st.markdown(f'<div class="mg-wrap">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------------------------
+# holiday table: New York vs Europe side by side
+# ---------------------------------------------------------------------------------------------
+if show_hol and exsel:
+    yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())], default=start.year,
+                  label_visibility="collapsed") or start.year
+    st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
+                '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
+                unsafe_allow_html=True)
+    hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
+    rows = ""
+    for d, g in hy.groupby("date"):
+        closed = set(g["exchange"])
+        cls = ' class="past"' if d.date() < today else ""
+        rows += (f'<tr{cls}><td>{" / ".join(dict.fromkeys(g["holiday"]))}</td><td>{d:%a %d %b}</td>'
+                 + "".join(f'<td class="{"x" if e in closed else "o"}">{"Closed" if e in closed else "Open"}</td>'
+                           for e in exsel) + "</tr>")
+    head = "".join(f"<th>{e}</th>" for e in exsel)
+    st.markdown(f'<table class="ht"><tr><th>Holiday</th><th>Date</th>{head}</tr>{rows}</table>',
+                unsafe_allow_html=True)
