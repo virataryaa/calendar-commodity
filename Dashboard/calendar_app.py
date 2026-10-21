@@ -727,14 +727,17 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             man_win = man_view[man_view["date"].between(xrange[0], xrange[1])]
             labels, ticks, tvals, groups = [], [], [], []
             y = 0.0
+            if not man_win.empty:   # one shared Events row on top for all manual entries
+                labels.append("man#all")
+                ticks.append(f"<b><span style='color:{MAN_COLOR}'>Events</span></b>")
+                tvals.append(y)
+                y += 1 + GAP
             for gi, (c, g) in enumerate(fut.groupby("commodity", sort=False)):
                 y += GAP if gi else 0
                 first = y
                 rows = [(k, f"<span style='color:#5a6688'>{k[len(c):]}</span>") for k in g["contract"]]
                 if "OPT" in (evsel or []):   # options sit last in each block
                     rows.append((f"opt#{c}", f"<span style='color:{OPT_RED}'>Options</span>"))
-                if any(c in GROUPS[g] for g in man_win["group"]):   # manual events for this market's group
-                    rows.append((f"man#{c}", f"<span style='color:{MAN_COLOR}'>Events</span>"))
                 for lab, tick in rows:
                     labels.append(lab)
                     ticks.append(tick)
@@ -822,19 +825,17 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                                                 o["underlying_future"], o["LTD"], o["underlying_FND"])]))
 
             # manual events: orange stars on their own row, light orange band like the options row
-            mrows = [lab[4:] for lab in labels if lab.startswith("man#")]
-            if mrows:
+            if "man#all" in pos:
                 fig.add_trace(go.Bar(
-                    orientation="h", base=[span0] * len(mrows), y=[pos[f"man#{c}"] for c in mrows],
-                    x=[(span1 - span0).total_seconds() * 1000] * len(mrows), width=0.46, hoverinfo="skip",
+                    orientation="h", base=[span0], y=[pos["man#all"]],
+                    x=[(span1 - span0).total_seconds() * 1000], width=0.46, hoverinfo="skip",
                     marker=dict(color="rgba(217,130,43,0.08)", cornerradius=6, line_width=0)))
                 mx, my, mt, mh = [], [], [], []
-                for c in mrows:
-                    grp_ = next(g for g, cs in GROUPS.items() if c in cs)
+                for grp_ in GROUPS:
                     for r in man_win[man_win["group"] == grp_].itertuples():
                         t_ = html.escape(r.title)
                         mx.append(r.date)
-                        my.append(pos[f"man#{c}"])
+                        my.append(pos["man#all"])
                         mt.append(t_ if len(t_) <= 18 else t_[:17] + "…")
                         mh.append(f"<b><span style='color:{NAVY};font-size:13px'>{t_}</span></b>   "
                                   f"<span style='color:#a3abbd'>{grp_} event · manual entry</span><br>"
