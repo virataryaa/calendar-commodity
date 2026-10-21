@@ -158,12 +158,10 @@ div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownConta
 .up tr.wk td { background: #fafbfd; color: #0a2463; font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
                text-transform: uppercase; padding: 7px 18px; border-bottom: 1px solid #eef0f6; border-top: 1px solid #eef0f6; }
 .up tr.wk td span { color: #a3abbd; font-weight: 500; letter-spacing: .02em; text-transform: none; margin-left: 8px; }
-.up td.d { width: 108px; white-space: nowrap; vertical-align: top; padding-top: 10px; border-right: 1px solid #f4f5f9; }
-.up td.d .dn { font-family: 'Fraunces', Georgia, serif; font-size: 1.35rem; font-weight: 600; color: #0a2463; line-height: 1; }
-.up td.d .dw { color: #8a94a8; font-size: 10.5px; margin-top: 3px; }
-.up td.d .rel { display: inline-block; white-space: nowrap; margin-top: 5px; font-size: 10px; color: #5a6688; background: #f1f3f8;
-                border-radius: 999px; padding: 1px 8px; }
-.up td.d.now .rel { background: #0a2463; color: #ffffff; }
+.up td.d { width: 110px; white-space: nowrap; vertical-align: top; border-right: 1px solid #f4f5f9; }
+.up td.d .dl { color: #0a2463; font-weight: 600; }
+.up td.d .rel { color: #a3abbd; font-size: 10.5px; margin-top: 2px; }
+.up td.d.now .dl { color: #0a2463; } .up td.d.now .rel { color: #b08d57; font-weight: 600; }
 .up td.k { font-weight: 600; color: #3a4466; letter-spacing: .02em; }
 .up td.m { color: #5a6688; }
 .up td.m .tag { color: #b4bccd; font-size: 10.5px; margin-left: 8px; }
@@ -498,8 +496,8 @@ with tab_up:
                 date_td = ""
                 if j == 0:
                     now = " now" if d == t0 else ""
-                    date_td = (f'<td class="d{now}" rowspan="{len(grp)}"><div class="dn">{d:%d}</div>'
-                               f'<div class="dw">{d:%a} · {d:%b}</div><div class="rel">{rel(d)}</div></td>')
+                    date_td = (f'<td class="d{now}" rowspan="{len(grp)}"><div class="dl">{d:%a %d %b}</div>'
+                               f'<div class="rel">{rel(d)}</div></td>')
                 first = " first" if j == 0 else ""
                 if is_hol:
                     name, exs = r
