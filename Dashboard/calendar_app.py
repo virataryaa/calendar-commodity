@@ -830,20 +830,25 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                     orientation="h", base=[span0], y=[pos["man#all"]],
                     x=[(span1 - span0).total_seconds() * 1000], width=0.46, hoverinfo="skip",
                     marker=dict(color="rgba(217,130,43,0.08)", cornerradius=6, line_width=0)))
+                # one star per day: several events on the same day share it ("+N"), the hover lists them all
                 mx, my, mt, mh = [], [], [], []
-                for grp_ in GROUPS:
-                    for r in man_win[man_win["group"] == grp_].itertuples():
-                        t_ = html.escape(r.title)
-                        mx.append(r.date)
-                        my.append(pos["man#all"])
-                        mt.append(t_ if len(t_) <= 18 else t_[:17] + "…")
-                        mh.append(f"<b><span style='color:{NAVY};font-size:13px'>{t_}</span></b>   "
-                                  f"<span style='color:#a3abbd'>{grp_} event · manual entry</span><br>"
-                                  f"<span style='color:{GOLD}'>{fmt(r.date)}</span><br><br>"
-                                  + (f"{html.escape(r.description)}<br><br>" if r.description else "")
-                                  + f"<span style='color:#8a94a8'>{rel_day(r.date).capitalize()}</span><extra></extra>")
+                for d, g in man_win.sort_values(["date", "group", "title"]).groupby("date"):
+                    first_t = html.escape(g["title"].iloc[0])
+                    first_t = first_t if len(first_t) <= 18 else first_t[:17] + "…"
+                    mx.append(d)
+                    my.append(pos["man#all"])
+                    mt.append(first_t + (f" +{len(g) - 1}" if len(g) > 1 else ""))
+                    items = "<br><br>".join(
+                        f"<span style='color:{MAN_COLOR}'>★</span>  <b><span style='color:{NAVY}'>{html.escape(r.title)}</span></b>"
+                        f"   <span style='color:#a3abbd'>{r.group}</span>"
+                        + (f"<br><span style='color:#5a6688'>{html.escape(r.description)}</span>" if r.description else "")
+                        for r in g.itertuples())
+                    n = len(g)
+                    mh.append(f"<span style='color:{GOLD}'>{fmt(d)}</span>   "
+                              f"<span style='color:#a3abbd'>{n} manual event{'s' * (n != 1)}</span><br><br>"
+                              f"{items}<br><br><span style='color:#8a94a8'>{rel_day(d).capitalize()}</span><extra></extra>")
                 fig.add_trace(go.Scatter(
-                    x=mx, y=my, mode="markers+text", text=mt, textposition="top center",
+                    x=mx, y=my, mode="markers+text", text=mt, textposition="bottom center",
                     textfont=dict(size=8.5, color="#b0682a"), hovertemplate=mh,
                     marker=dict(symbol="star", size=12, color=MAN_COLOR, line=dict(color="#ffffff", width=1.5))))
 
