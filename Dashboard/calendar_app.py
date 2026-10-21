@@ -497,7 +497,7 @@ def has_data() -> bool:
 with tab_gantt:
     st.markdown(
         '<div class="lgd">'
-        '<span><i style="background:#0a2463;width:20px;border-radius:4px"></i>Notice window</span>'
+        '<span><i style="background:#c3cde4;width:20px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(10,36,99,0.35)"></i>Notice window</span>'
         f'<span><i style="background:{EV_COLOR["FND"]};border-radius:999px"></i>First Notice</span>'
         f'<span><i style="background:{EV_COLOR["LTD"]};transform:rotate(45deg)"></i>Last Trading</span>'
         f'<span><i style="background:{EV_COLOR["LND"]}"></i>Last Notice</span>'
@@ -508,13 +508,11 @@ with tab_gantt:
         f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
         unsafe_allow_html=True)
     if has_data():
-        # rows: a header per commodity, then its contracts (numeric y so marks can be placed exactly)
+        # rows per commodity: its Options line, then its contracts (numeric y so marks can be placed exactly);
+        # the commodity name is drawn once, centred down the left of its block like a merged cell
         labels, ticks, groups = [], [], []
         for c, g in fut.groupby("commodity", sort=False):
             first = len(labels)
-            labels.append(f"#{c}")
-            ticks.append(f"<b><span style='color:#0a2463'>{COMMODITY_LABELS[c]}</span></b>"
-                         f"  <span style='color:#a3abbd'>{c}</span>")
             if "OPT" in (evsel or []):
                 labels.append(f"opt#{c}")
                 ticks.append(f"<span style='color:{EV_COLOR['OPT']}'>Options</span>")
@@ -527,12 +525,17 @@ with tab_gantt:
         span0, span1 = xrange
         fig = go.Figure()
 
-        # group bands + a navy accent on each header row
-        for n, (a, b) in enumerate(groups):
+        # soft group bands, a hairline between groups, and the commodity name centred on its block
+        for n, ((a, b), c) in enumerate(zip(groups, fut["commodity"].unique())):
             fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=b + 0.5, layer="below",
-                          fillcolor="#f8f9fc" if n % 2 == 0 else "#ffffff", line_width=0)
-            fig.add_shape(type="rect", xref="paper", x0=0, x1=0.0035, y0=a - 0.28, y1=a + 0.28,
-                          fillcolor=NAVY, line_width=0)
+                          fillcolor="#fafbfd" if n % 2 == 0 else "#ffffff", line_width=0)
+            if n:
+                fig.add_shape(type="line", xref="paper", x0=0, x1=1, y0=a - 0.5, y1=a - 0.5,
+                              line=dict(color="rgba(10,36,99,0.08)", width=1))
+            fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-62, y=(a + b) / 2, yanchor="middle",
+                               showarrow=False, align="right",
+                               text=f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b><br>"
+                                    f"<span style='color:#a3abbd'>{c}</span>", font=dict(size=11.5))
 
         # hairline: trading life up to the notice window
         lx, ly = [], []
@@ -563,7 +566,7 @@ with tab_gantt:
         dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=1))
         fig.add_trace(go.Bar(
             orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut_y, width=0.4,
-            marker=dict(color=NAVY, cornerradius=5, line_width=0),
+            marker=dict(color="#c3cde4", cornerradius=5, line=dict(color="rgba(10,36,99,0.35)", width=1)),
             hovertemplate=[f"<b>{r.contract}</b> · {COMMODITY_LABELS[r.commodity]}<br>FND {fmt(r.FND)}<br>"
                            f"LTD {fmt(r.LTD)}" + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
                            + "<extra></extra>" for r in fut.itertuples()]))
@@ -608,7 +611,7 @@ with tab_gantt:
                            bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
         style_fig(fig, 30 * len(labels) + 70)
-        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=8, r=12, t=40, b=34))
+        fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=150, r=12, t=40, b=34))
         fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                          gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
         fig.update_yaxes(tickmode="array", tickvals=list(range(len(labels))), ticktext=ticks,
@@ -622,7 +625,7 @@ with tab_roll:
                     unsafe_allow_html=True)
         st.markdown(
             '<div class="lgd">'
-            '<span><i style="background:#0a2463;width:18px"></i>Notice window (FND → LND)</span>'
+            '<span><i style="background:#c3cde4;width:18px;box-shadow:inset 0 0 0 1px rgba(10,36,99,0.35)"></i>Notice window (FND → LND)</span>'
             '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px;'
             'box-shadow:inset 0 0 0 1px rgba(109,79,194,0.35)"></i>Index roll ±5 bd</span>'
             '<span><i style="background:#6d4fc2;width:3px;height:13px;border-radius:2px"></i>Index roll day</span>'
@@ -654,7 +657,7 @@ with tab_roll:
         dur = (fut["w1"] - fut["w0"]).clip(lower=pd.Timedelta(days=2))
         fig2.add_trace(go.Bar(
             orientation="h", base=fut["w0"], x=dur.dt.total_seconds() * 1000, y=fut["commodity"].map(yi),
-            width=0.3, marker=dict(color=NAVY, cornerradius=4, line_width=0), opacity=0.85,
+            width=0.3, marker=dict(color="#c3cde4", cornerradius=4, line=dict(color="rgba(10,36,99,0.35)", width=1)),
             hovertemplate=[f"<b>{r.contract}</b><br>FND {fmt(r.FND)}<br>LTD {fmt(r.LTD)}"
                            + (f"<br>LND {fmt(r.LND)}" if pd.notna(r.LND) else "")
                            + (f"<br>Index roll {fmt(r.IDX)}" if pd.notna(r.IDX) else "") + "<extra></extra>"
