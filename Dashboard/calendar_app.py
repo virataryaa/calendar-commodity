@@ -580,8 +580,8 @@ def fmt(d) -> str:
 manual = load_manual()
 man_view = manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0]
 
-tab_cal, tab_up, tab_gantt, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
-    ["Calendar", "Upcoming", "Contract Gantt", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
+tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
+    ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
     key="main_tab", on_change="rerun")
 
 if tab_up.open is not False:   # lazy: only the open tab runs
