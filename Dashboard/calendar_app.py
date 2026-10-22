@@ -1064,25 +1064,46 @@ if tab_hol.open is not False:   # lazy: only the open tab runs
 # ---------------------------------------------------------------------------------------------
 # Entry tab: click a day, tag it Coffee / Cocoa / Sugar / Cotton, add a short name and description
 # ---------------------------------------------------------------------------------------------
-@st.dialog("Add calendar event")
-def entry_dialog(d: date) -> None:
-    st.markdown(f"**{d:%A %d %B %Y}**")
-    same_day = manual[manual["date"].dt.date == d]
-    for r in same_day.itertuples():
-        st.caption(f"Already on this day: {r.title} ({r.group})")
-    grp = st.radio("Tag as", list(GROUPS), horizontal=True, format_func=lambda g: f"{g} event")
-    title = st.text_input("Short name", max_chars=40, placeholder="e.g. Starbucks earnings")
-    desc = st.text_area("Description", max_chars=400, placeholder="Optional detail")
+def _event_form(d: date, ev=None) -> None:
+    """Add (ev None) or edit one manual event; an edit keeps the id and created date and may move the date."""
+    if ev is None:
+        st.markdown(f"**{d:%A %d %B %Y}**")
+        for r in manual[manual["date"].dt.date == d].itertuples():
+            st.caption(f"Already on this day: {r.title} ({r.group})")
+    else:
+        d = st.date_input("Date", value=d, format="DD/MM/YYYY")
+    groups = list(GROUPS)
+    grp = st.radio("Tag as", groups, horizontal=True, format_func=lambda g: f"{g} event",
+                   index=groups.index(ev.group) if ev is not None and ev.group in groups else 0)
+    title = st.text_input("Short name", max_chars=40, placeholder="e.g. Starbucks earnings", value="" if ev is None else ev.title)
+    desc = st.text_area("Description", max_chars=400, placeholder="Optional detail", value="" if ev is None else ev.description)
     if st.button("Save", type="primary", disabled=not title.strip()):
-        new = {"id": uuid.uuid4().hex[:8], "date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(),
-               "description": desc.strip(), "created": f"{date.today():%Y-%m-%d}"}
+        fields = {"date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(), "description": desc.strip()}
+        if ev is None:
+            new = {"id": uuid.uuid4().hex[:8], **fields, "created": f"{date.today():%Y-%m-%d}"}
+            change, msg = (lambda df: pd.concat([df, pd.DataFrame([new])], ignore_index=True)), f"Calendar entry: {new['title']} ({grp}, {d:%d %b %Y})"
+        else:
+            def change(df, i=ev.id):
+                for k, v in fields.items():
+                    df.loc[df["id"] == i, k] = v
+                return df
+            msg = f"Calendar entry edited: {fields['title']} ({grp}, {d:%d %b %Y})"
         try:
-            save_manual(lambda df: pd.concat([df, pd.DataFrame([new])], ignore_index=True),
-                        f"Calendar entry: {new['title']} ({grp}, {d:%d %b %Y})")
+            save_manual(change, msg)
         except gh.GitHubError as ex:
             st.error(str(ex))
             return
         st.rerun()
+
+
+@st.dialog("Add calendar event")
+def entry_dialog(d: date) -> None:
+    _event_form(d)
+
+
+@st.dialog("Edit calendar event")
+def edit_dialog(ev) -> None:
+    _event_form(ev.date.date(), ev)
 
 
 if tab_ent.open is not False:   # lazy: only the open tab runs
@@ -1124,12 +1145,14 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
             st.markdown('<div class="card-desc">No manual events yet.</div>', unsafe_allow_html=True)
         else:
             for r in manual.sort_values("date").itertuples():
-                c = st.columns([1.3, 0.9, 2, 4, 0.8])
+                c = st.columns([1.3, 0.9, 2, 3.4, 0.7, 0.7])
                 c[0].markdown(f'<div class="ent-row"><b>{r.date:%a %d %b %Y}</b></div>', unsafe_allow_html=True)
                 c[1].markdown(f'<div class="ent-row" style="color:{MAN_COLOR}">★ {r.group}</div>', unsafe_allow_html=True)
                 c[2].markdown(f'<div class="ent-row"><b>{html.escape(r.title)}</b></div>', unsafe_allow_html=True)
                 c[3].markdown(f'<div class="ent-row m">{html.escape(r.description)}</div>', unsafe_allow_html=True)
-                if c[4].button("Delete", key=f"del_{r.id}", width="stretch"):
+                if c[4].button("Edit", key=f"edit_{r.id}", width="stretch"):
+                    edit_dialog(r)
+                if c[5].button("Delete", key=f"del_{r.id}", width="stretch"):
                     try:
                         save_manual(lambda df, i=r.id: df[df["id"] != i], f"Calendar entry removed: {r.title} ({r.date:%d %b %Y})")
                     except gh.GitHubError as ex:
