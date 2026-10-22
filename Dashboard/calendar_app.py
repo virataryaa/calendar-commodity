@@ -294,17 +294,19 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs [aria-selected="true"] { background: #0a2463 !important; color: #ffffff !important; }
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
 /* Calendar tab: icy teal month cards */
+.mg-wrap { align-items: start; }                                  /* each month only as tall as its weeks */
+.mg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, .55fr)); }   /* slimmer weekends */
 .mg { background: linear-gradient(160deg, rgba(240,253,250,.95), rgba(236,254,255,.9) 60%, rgba(240,249,255,.9));
   border: 1px solid rgba(13,148,136,.16); box-shadow: 0 6px 22px rgba(13,148,136,.08), inset 0 1px 0 rgba(255,255,255,.9); }
 .mg.cur { border-color: rgba(13,148,136,.55); box-shadow: 0 0 0 3px rgba(20,184,166,.10), 0 8px 26px rgba(13,148,136,.14); }
 .mg-head { border-bottom: 1px solid rgba(13,148,136,.12); }
 .mg-name { color: #0f4c5c; } .mg-name small { color: #5f8f94; }
 .mg-count { background: rgba(20,184,166,.12); color: #0f766e; }
-.mg-dow { color: #5f8f94; } .mg-dow.we { color: #9cc5c2; background: rgba(13,148,136,.05); }
+.mg-dow { color: #5f8f94; } .mg-dow.we { color: #9cc5c2; background: rgba(13,148,136,.025); }
 .mg-day { border-right-color: rgba(13,148,136,.08); border-bottom-color: rgba(13,148,136,.08); background: rgba(255,255,255,.45); }
-.mg-day.we { background: rgba(13,148,136,.04); } .mg-day.out { background: rgba(255,255,255,.25); }
+.mg-day.we { background: rgba(13,148,136,.02); } .mg-day.out { background: rgba(255,255,255,.25); }
 .mg-day .n { color: #134e4a; } .mg-day.we .n { color: #8fb8b5; } .mg-day.past .n { color: #9bbdba; }
-.mg-day.today { background: rgba(204,251,241,.6); box-shadow: inset 0 0 0 1.5px #0d9488; }
+.mg-day.today { background: rgba(204,251,241,.28); box-shadow: inset 0 0 0 1.5px #0d9488; }
 .mg-day.today .n { background: #0d9488; color: #ffffff; }
 /* ICE glass theme (same as Coffee SnD) */
 [data-testid="stSidebar"] { background: linear-gradient(160deg, rgba(246,248,253,.92) 0%, rgba(233,238,248,.88) 55%, rgba(240,236,246,.9) 100%) !important;
@@ -733,7 +735,6 @@ if tab_up.open is not False:   # lazy: only the open tab runs
 
 if tab_cal.open is not False:   # lazy: only the open tab runs
     with tab_cal:
-        st.markdown('<div class="page-title" style="margin:6px 0 10px">Month Grid</div>', unsafe_allow_html=True)
         st.markdown(legend_html('<span><i style="background:#f6dede;border:1px solid #a0616f"></i>'
                                 'Exchange closed (NY / EU)</span>'
                                 + (f'<span><span class="gl" style="color:{MAN_COLOR}">★</span>Manual event</span>'
