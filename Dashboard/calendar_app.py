@@ -280,6 +280,8 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .st-key-entry_grid [class*="st-key-entev_"] button p { color: #115e59; font-weight: 700; }
 .st-key-entry_grid button[kind="primary"] { background: #f0fdfa; border: 1.5px solid #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
 .st-key-entry_grid button[kind="primary"] p { color: #0f766e !important; font-weight: 700; }
+.st-key-ent_tl_box { padding: 8px 12px 4px; border-radius: 18px; background: linear-gradient(160deg, rgba(240,253,250,.9), rgba(236,254,255,.85) 60%, rgba(224,242,254,.8));
+  border: 1px solid rgba(13,148,136,.14); box-shadow: 0 8px 26px rgba(13,148,136,.08), inset 0 1px 0 rgba(255,255,255,.9); }
 .ent-row { font-size: 12.5px; color: #1a1a2e; padding-top: 7px; }
 .ent-row.m { color: #8a94a8; }
 
@@ -768,14 +770,15 @@ def has_data() -> bool:
 
 
 TAG_COL = {"Coffee": "#8b5a2b", "Cocoa": "#6d4c41", "Sugar": "#2a8c8c", "Cotton": "#5b74a8"}
+ICY_COL = {"Coffee": "#5fb3ad", "Cocoa": "#7aa7c7", "Sugar": "#8ed5c8", "Cotton": "#9db8da"}   # Entry tab: icy, subtle
 
 
-def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart") -> None:
+def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
     """Events only: every event on its own row with its name on it; multi-day events as bars, one-day events as stars."""
     ev = win.drop_duplicates("id").sort_values(["start", "title"]).reset_index(drop=True)
     fig = go.Figure()
     for i, r in ev.iterrows():
-        col = TAG_COL.get(r["group"], MAN_COLOR)
+        col = (ICY_COL if icy else TAG_COL).get(r["group"], MAN_COLOR)
         name, sp = html.escape(r["title"]), span_txt(r)
         hov = (f"<b><span style='color:{NAVY}'>{name}</span></b>   <span style='color:#a3abbd'>{r['group']}</span><br>"
                + (sp or f"{r['start']:%a %d %b %Y}")
@@ -783,15 +786,15 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart") -> None:
         if r["n"] > 1:
             b0, b1 = max(r["start"], xrange[0]), r["stop"] + pd.Timedelta(days=1)
             fig.add_trace(go.Bar(orientation="h", base=[b0], y=[i], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
-                                 marker=dict(color=col, opacity=.8, cornerradius=6, line_width=0), hovertemplate=hov,
+                                 marker=dict(color=col, opacity=.55 if icy else .8, cornerradius=6, line_width=0), hovertemplate=hov,
                                  text=[f"  {name}  ·  {sp}"], textposition="inside", insidetextanchor="start",
-                                 textfont=dict(color="#ffffff", size=11.5, family="Inter, sans-serif")))
+                                 textfont=dict(color="#134e4a" if icy else "#ffffff", size=11.5, family="Inter, sans-serif")))
         else:
             fig.add_trace(go.Scatter(x=[r["start"]], y=[i], mode="markers+text", hovertemplate=hov,
                                      marker=dict(symbol="star", size=15, color=col, line=dict(color="#ffffff", width=1.5)),
                                      text=[f"  {name}"], textposition="middle right",
-                                     textfont=dict(color=NAVY, size=12, family="Inter, sans-serif")))
-    fig.add_vline(x=pd.Timestamp(today), line=dict(color=NAVY, width=1.5))
+                                     textfont=dict(color="#134e4a" if icy else NAVY, size=12, family="Inter, sans-serif")))
+    fig.add_vline(x=pd.Timestamp(today), line=dict(color="#14b8a6" if icy else NAVY, width=1.2 if icy else 1.5))
     fig.update_layout(height=90 + 38 * len(ev), showlegend=False, barmode="overlay", margin=dict(l=10, r=10, t=40, b=10),
                       plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
@@ -1245,7 +1248,8 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
         ent_win = ent_win[ent_win["date"].between(xrange[0], xrange[1])]
         if not ent_win.empty:                                     # the same Focus view as the Market Timeline
             st.markdown('<div class="sec">Events timeline</div>', unsafe_allow_html=True)
-            events_focus(ent_win, key="ent_focus_chart")
+            with st.container(key="ent_tl_box"):
+                events_focus(ent_win, key="ent_focus_chart", icy=True)
         st.markdown('<div class="sec">Saved events</div>', unsafe_allow_html=True)
         if manual.empty:
             st.markdown('<div class="card-desc">No manual events yet.</div>', unsafe_allow_html=True)
