@@ -25,7 +25,7 @@ DB_DIR = Path(__file__).resolve().parent.parent / "Database"
 # Manual events (Entry tab): one CSV in the repo, written through the GitHub API so every user sees them
 MAN_FILE = DB_DIR / "manual_events.csv"
 MAN_PATH = "Database/manual_events.csv"          # same file, path inside the GitHub repo
-MAN_COLS = ["id", "date", "group", "title", "description", "created"]
+MAN_COLS = ["id", "date", "group", "title", "description", "created", "end"]   # end blank = one-day event
 GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"]}
 MAN_COLOR = "#d9822b"
 
@@ -49,7 +49,19 @@ def load_manual() -> pd.DataFrame:
         text = MAN_FILE.read_text(encoding="utf-8") if MAN_FILE.exists() else ",".join(MAN_COLS) + "\n"
     df = _parse_manual(text)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["end"] = pd.to_datetime(df["end"], errors="coerce")
     return df.dropna(subset=["date"]).reset_index(drop=True)
+
+
+def by_day(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per day: a multi-day event is repeated on every day it covers, titled 'Name (2/5)'."""
+    rows = []
+    for r in df.to_dict("records"):
+        e = r["end"] if pd.notna(r["end"]) and r["end"] > r["date"] else r["date"]
+        n = min((e - r["date"]).days + 1, 366)
+        for k in range(n):
+            rows.append({**r, "date": r["date"] + pd.Timedelta(days=k), "title": r["title"] + (f" ({k + 1}/{n})" if n > 1 else "")})
+    return pd.DataFrame(rows, columns=df.columns) if rows else df.iloc[0:0]
 
 
 def save_manual(change, message: str) -> None:
@@ -596,7 +608,7 @@ def fmt(d) -> str:
 
 
 manual = load_manual()
-man_view = manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0]
+man_view = by_day(manual[manual["group"].isin(man_groups)]) if show_man else manual.iloc[0:0]
 
 tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
     ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
@@ -1077,8 +1089,13 @@ def _event_form(d: date, ev=None) -> None:
                    index=groups.index(ev.group) if ev is not None and ev.group in groups else 0)
     title = st.text_input("Short name", max_chars=40, placeholder="e.g. Starbucks earnings", value="" if ev is None else ev.title)
     desc = st.text_area("Description", max_chars=400, placeholder="Optional detail", value="" if ev is None else ev.description)
+    had_end = ev is not None and pd.notna(ev.end)
+    multi = st.toggle("Lasts more than one day", value=had_end)
+    end = st.date_input("Ends on", value=ev.end.date() if had_end else d + pd.Timedelta(days=1), min_value=d,
+                        format="DD/MM/YYYY") if multi else None
     if st.button("Save", type="primary", disabled=not title.strip()):
-        fields = {"date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(), "description": desc.strip()}
+        fields = {"date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(), "description": desc.strip(),
+                  "end": f"{end:%Y-%m-%d}" if end and end > d else ""}
         if ev is None:
             new = {"id": uuid.uuid4().hex[:8], **fields, "created": f"{date.today():%Y-%m-%d}"}
             change, msg = (lambda df: pd.concat([df, pd.DataFrame([new])], ignore_index=True)), f"Calendar entry: {new['title']} ({grp}, {d:%d %b %Y})"
@@ -1123,7 +1140,8 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
             st.rerun()
         nav[1].markdown(f'<div class="ent-title">{em:%B %Y}</div>', unsafe_allow_html=True)
 
-        counts = manual.groupby(manual["date"].dt.date).size().to_dict()
+        days = by_day(manual)
+        counts = days.groupby(days["date"].dt.date).size().to_dict()
         with st.container(key="entry_grid"):
             hdr = st.columns(7)
             for i, w in enumerate(WEEKDAYS):
@@ -1146,7 +1164,8 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
         else:
             for r in manual.sort_values("date").itertuples():
                 c = st.columns([1.3, 0.9, 2, 3.4, 0.7, 0.7])
-                c[0].markdown(f'<div class="ent-row"><b>{r.date:%a %d %b %Y}</b></div>', unsafe_allow_html=True)
+                rng = f" &ndash; {r.end:%d %b}" if pd.notna(r.end) else ""
+                c[0].markdown(f'<div class="ent-row"><b>{r.date:%a %d %b %Y}</b>{rng}</div>', unsafe_allow_html=True)
                 c[1].markdown(f'<div class="ent-row" style="color:{MAN_COLOR}">★ {r.group}</div>', unsafe_allow_html=True)
                 c[2].markdown(f'<div class="ent-row"><b>{html.escape(r.title)}</b></div>', unsafe_allow_html=True)
                 c[3].markdown(f'<div class="ent-row m">{html.escape(r.description)}</div>', unsafe_allow_html=True)
