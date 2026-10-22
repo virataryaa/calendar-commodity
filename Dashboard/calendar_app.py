@@ -152,7 +152,10 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .card-desc { color: #5a6688; font-size: 0.82rem; margin-bottom: 12px; }
 
 /* Legend */
-.lgd { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: #5a6688; margin: 0 0 14px; }
+.lgd { display: flex; width: fit-content; max-width: 100%; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: #5a6688; margin: 0 0 14px;
+  padding: 6px 16px; border-radius: 999px; background: linear-gradient(160deg, rgba(250,252,255,.9), rgba(236,242,251,.85));
+  border: 1px solid rgba(43,74,138,.10); box-shadow: 0 2px 10px rgba(30,58,110,.05), inset 0 1px 0 rgba(255,255,255,.9);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .lgd span { display: inline-flex; align-items: center; gap: 6px; }
 .lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
