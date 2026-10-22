@@ -328,8 +328,10 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .st-key-tl_top { gap: 12px; } .st-key-tl_top .lgd { margin: 0; }
 .st-key-tl_top [data-testid="stButton"] { margin-left: auto; width: auto; }
 .st-key-tl_focus_btn button, .st-key-tl_back button { border-radius: 999px !important; min-height: 0 !important; padding: 7px 18px !important;
-  background: rgba(255,255,255,.72) !important; border: 1px solid rgba(15,23,42,.06) !important;
-  box-shadow: 0 2px 10px rgba(15,23,42,.04), inset 0 1px 0 rgba(255,255,255,.9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  background: rgba(255,255,255,.72) !important; border: 1px solid rgba(59,91,170,.32) !important;
+  box-shadow: 0 0 0 3px rgba(59,91,170,.07), 0 0 14px rgba(59,91,170,.20), inset 0 1px 0 rgba(255,255,255,.9);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: box-shadow .2s; }
+.st-key-tl_focus_btn button:hover, .st-key-tl_back button:hover { box-shadow: 0 0 0 4px rgba(59,91,170,.10), 0 0 18px rgba(59,91,170,.30) !important; }
 .st-key-tl_focus_btn button p, .st-key-tl_back button p { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12px !important; color: #1e3a6e !important; font-weight: 600; }
 .st-key-tl_focus_btn button:hover, .st-key-tl_back button:hover { border-color: rgba(43,74,138,.25) !important; }
 /* polished face for every secondary / sub text */
