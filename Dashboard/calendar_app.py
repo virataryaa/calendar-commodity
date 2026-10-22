@@ -260,6 +260,24 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs [data-baseweb="tab"] { border-radius: 999px; padding: 6px 18px; height: auto; min-height: 0; background: transparent; }
 .stTabs [aria-selected="true"] { background: #0a2463 !important; color: #ffffff !important; }
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
+/* ICE glass theme (same as Coffee SnD) */
+[data-testid="stSidebar"] { background: linear-gradient(160deg, rgba(246,248,253,.92) 0%, rgba(233,238,248,.88) 55%, rgba(240,236,246,.9) 100%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  border-right: 1px solid rgba(255,255,255,.75) !important; box-shadow: inset -1px 0 0 rgba(10,36,99,.06), 6px 0 28px rgba(10,36,99,.06); }
+[data-testid="stSidebar"] div[role="radiogroup"], .stTabs [data-baseweb="tab-list"] { background: rgba(255,255,255,.55) !important; border: 1px solid rgba(255,255,255,.85);
+  box-shadow: 0 1px 2px rgba(10,36,99,.05), inset 0 1px 0 rgba(255,255,255,.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+div[role="radiogroup"] label:has(input:checked), .stTabs [aria-selected="true"] { background: linear-gradient(180deg, #13307a, #0a2463) !important;
+  box-shadow: 0 2px 8px rgba(10,36,99,.28), inset 0 1px 0 rgba(255,255,255,.18); }
+.stTabs button[data-baseweb="tab"]:last-of-type[aria-selected="true"] { background: linear-gradient(180deg, #e08f3c, #d9822b) !important; box-shadow: 0 2px 8px rgba(217,130,43,.3); }
+.stTabs [data-baseweb="tab"]:not([aria-selected="true"]):hover { background: rgba(10,36,99,.06) !important; }
+[data-testid="stSidebar"] [data-testid="stButtonGroup"] button { background: rgba(255,255,255,.6) !important; border: 1px solid rgba(10,36,99,.10) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9); transition: all .15s; }
+[data-testid="stSidebar"] [data-testid="stButtonGroup"] button:hover { border-color: rgba(10,36,99,.25) !important; }
+[data-testid="stSidebar"] [data-testid="stButtonGroup"] button[kind*="Active"], [data-testid="stSidebar"] [data-testid="stButtonGroup"] button[aria-checked="true"] {
+  background: linear-gradient(180deg, #13307a, #0a2463) !important; border-color: transparent !important; box-shadow: 0 2px 6px rgba(10,36,99,.25); }
+[data-testid="stSidebar"] [data-testid="stButtonGroup"] button[kind*="Active"] p, [data-testid="stSidebar"] [data-testid="stButtonGroup"] button[aria-checked="true"] p { color: #fff !important; }
+[data-testid="stSidebar"] .stToggle { background: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.85); border-radius: 12px; padding: 6px 10px;
+  box-shadow: 0 1px 2px rgba(10,36,99,.04), inset 0 1px 0 rgba(255,255,255,.9); }
 .sec { color: #0a2463; font-weight: 700; font-size: 1.02rem; margin: 18px 0 0; }
 </style>
 """,
