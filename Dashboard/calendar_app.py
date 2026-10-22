@@ -101,7 +101,7 @@ WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 [data-testid="stAppViewContainer"], [data-testid="stMain"], .main { background: #fafafa !important; }
 [data-testid="stHeader"] { background: #fafafa !important; }
 [data-testid="stSidebar"] { background: #f0f2f8 !important; border-right: 1px solid #dfe3ee; }
@@ -310,6 +310,10 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .mg-day .n { color: #1e293b; } .mg-day.we .n { color: #a7b3c9; } .mg-day.past .n { color: #a7b3c9; }
 .mg-day.today { background: rgba(219,231,250,.45); box-shadow: inset 0 0 0 1.5px #2b4a8a; }
 .mg-day.today .n { background: #1e3a8a; color: #ffffff; }
+/* polished face for every secondary / sub text */
+.lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
+.ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif !important; letter-spacing: .01em; }
 /* ICE glass theme (same as Coffee SnD) */
 [data-testid="stSidebar"] { background: linear-gradient(160deg, rgba(246,248,253,.92) 0%, rgba(233,238,248,.88) 55%, rgba(240,236,246,.9) 100%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
