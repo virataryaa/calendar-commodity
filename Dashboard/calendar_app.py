@@ -293,21 +293,20 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs [data-baseweb="tab"] { border-radius: 999px; padding: 6px 18px; height: auto; min-height: 0; background: transparent; }
 .stTabs [aria-selected="true"] { background: #0a2463 !important; color: #ffffff !important; }
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
-/* Calendar tab: icy teal month cards */
-.mg-wrap { align-items: start; }                                  /* each month only as tall as its weeks */
+/* Calendar tab: glacier month cards (ice-white to pale steel blue, sapphire accents) */
 .mg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, .55fr)); }   /* slimmer weekends */
-.mg { background: linear-gradient(160deg, rgba(240,253,250,.95), rgba(236,254,255,.9) 60%, rgba(240,249,255,.9));
-  border: 1px solid rgba(13,148,136,.16); box-shadow: 0 6px 22px rgba(13,148,136,.08), inset 0 1px 0 rgba(255,255,255,.9); }
-.mg.cur { border-color: rgba(13,148,136,.55); box-shadow: 0 0 0 3px rgba(20,184,166,.10), 0 8px 26px rgba(13,148,136,.14); }
-.mg-head { border-bottom: 1px solid rgba(13,148,136,.12); }
-.mg-name { color: #0f4c5c; } .mg-name small { color: #5f8f94; }
-.mg-count { background: rgba(20,184,166,.12); color: #0f766e; }
-.mg-dow { color: #5f8f94; } .mg-dow.we { color: #9cc5c2; background: rgba(13,148,136,.025); }
-.mg-day { border-right-color: rgba(13,148,136,.08); border-bottom-color: rgba(13,148,136,.08); background: rgba(255,255,255,.45); }
-.mg-day.we { background: rgba(13,148,136,.02); } .mg-day.out { background: rgba(255,255,255,.25); }
-.mg-day .n { color: #134e4a; } .mg-day.we .n { color: #8fb8b5; } .mg-day.past .n { color: #9bbdba; }
-.mg-day.today { background: rgba(204,251,241,.28); box-shadow: inset 0 0 0 1.5px #0d9488; }
-.mg-day.today .n { background: #0d9488; color: #ffffff; }
+.mg { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+  border: 1px solid rgba(43,74,138,.14); box-shadow: 0 6px 22px rgba(30,58,110,.08), inset 0 1px 0 rgba(255,255,255,.95); }
+.mg.cur { border-color: rgba(30,58,138,.45); box-shadow: 0 0 0 3px rgba(59,91,170,.09), 0 8px 26px rgba(30,58,110,.13); }
+.mg-head { border-bottom: 1px solid rgba(43,74,138,.10); }
+.mg-name { color: #1e3a6e; } .mg-name small { color: #7a8bab; }
+.mg-count { background: rgba(59,91,170,.10); color: #1e3a8a; }
+.mg-dow { color: #7a8bab; } .mg-dow.we { color: #a7b3c9; background: rgba(43,74,138,.025); }
+.mg-day { border-right-color: rgba(43,74,138,.07); border-bottom-color: rgba(43,74,138,.07); background: rgba(255,255,255,.5); }
+.mg-day.we { background: rgba(43,74,138,.02); } .mg-day.out { background: rgba(255,255,255,.3); }
+.mg-day .n { color: #1e293b; } .mg-day.we .n { color: #a7b3c9; } .mg-day.past .n { color: #a7b3c9; }
+.mg-day.today { background: rgba(219,231,250,.45); box-shadow: inset 0 0 0 1.5px #2b4a8a; }
+.mg-day.today .n { background: #1e3a8a; color: #ffffff; }
 /* ICE glass theme (same as Coffee SnD) */
 [data-testid="stSidebar"] { background: linear-gradient(160deg, rgba(246,248,253,.92) 0%, rgba(233,238,248,.88) 55%, rgba(240,236,246,.9) 100%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
