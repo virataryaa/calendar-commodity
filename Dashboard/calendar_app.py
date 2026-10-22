@@ -578,28 +578,30 @@ def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
 
 def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
     """Month strip across the top: alternating navy-tint blocks, centred labels (year in muted gold),
-    a gold hairline beneath, and a faint matching stripe down every other month of the plot."""
+    a gold hairline beneath, and a faint matching stripe down every other month of the plot.
+    Shapes and labels are collected and added in one go (adding them one by one is very slow)."""
     x0, x1 = pd.Timestamp(x0), pd.Timestamp(x1)
+    shapes, anns = [], []
     off = 22 if days else 0   # room for a row of day numbers under the month strip
     months = pd.date_range(x0.replace(day=1), x1, freq="MS")
     dense = len(months) > 14   # long horizons: year only on January and the first month
     for i, m in enumerate(months):
         a, b = max(m, x0), min(m + pd.offsets.MonthBegin(1), x1)
-        fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7 + off, y1=31 + off,
-                      fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above")
+        shapes.append(dict(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7 + off, y1=31 + off,
+                           fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above"))
         if i % 2 == 0:
-            fig.add_shape(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
-                          fillcolor="rgba(10,36,99,0.011)", line_width=0, layer="below")
+            shapes.append(dict(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
+                               fillcolor="rgba(10,36,99,0.011)", line_width=0, layer="below"))
         if m > x0:   # subtle grey rule at each month boundary
-            fig.add_shape(type="line", xref="x", x0=m, x1=m, yref="paper", y0=0, y1=1,
-                          line=dict(color="rgba(90,102,136,0.13)", width=0.6, dash="dot"), layer="below")
+            shapes.append(dict(type="line", xref="x", x0=m, x1=m, yref="paper", y0=0, y1=1,
+                               line=dict(color="rgba(90,102,136,0.13)", width=0.6, dash="dot"), layer="below"))
         if (b - a).days >= 8:
-            fig.add_annotation(x=a + (b - a) / 2, yref="paper", y=1, yshift=19 + off, showarrow=False, yanchor="middle",
-                               text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
-                                                        else f" <span style='color:{GOLD}'>’{m:%y}</span>"),
-                               font=dict(size=10.5, color=NAVY))
-    fig.add_shape(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5 + off, y1=5 + off,
-                  line=dict(color="rgba(176,141,87,0.55)", width=1))
+            anns.append(dict(x=a + (b - a) / 2, yref="paper", y=1, yshift=19 + off, showarrow=False, yanchor="middle",
+                             text=f"<b>{m:%b}</b>" + ("" if dense and m.month != 1 and i > 1
+                                                      else f" <span style='color:{GOLD}'>’{m:%y}</span>"),
+                             font=dict(size=10.5, color=NAVY)))
+    shapes.append(dict(type="line", xref="paper", x0=0, x1=1, yref="paper", ysizemode="pixel", yanchor=1, y0=5 + off, y1=5 + off,
+                       line=dict(color="rgba(176,141,87,0.55)", width=1)))
     fig.update_xaxes(showticklabels=False, ticks="", showgrid=False)
     if days:   # short horizons: each day's number under its month, weekends lighter
         # labels sit exactly on each date (midnight), the same x as the event symbols and the Today line
@@ -608,12 +610,13 @@ def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
             if d < x0:
                 continue
             is_today = d == t
-            fig.add_annotation(x=d, yref="paper", y=1, yshift=13, showarrow=False, yanchor="middle",
-                               text=f"<b>{d.day}</b>" if is_today else str(d.day),
-                               bgcolor=NAVY if is_today else None, borderpad=2 if is_today else 0,
-                               font=dict(size=8.5, color="#ffffff" if is_today
-                                         else ("#c3c9d6" if d.weekday() >= 5 else "#7a86a8")))
+            anns.append(dict(x=d, yref="paper", y=1, yshift=13, showarrow=False, yanchor="middle",
+                             text=f"<b>{d.day}</b>" if is_today else str(d.day),
+                             bgcolor=NAVY if is_today else None, borderpad=2 if is_today else 0,
+                             font=dict(size=8.5, color="#ffffff" if is_today
+                                       else ("#c3c9d6" if d.weekday() >= 5 else "#7a86a8"))))
         fig.update_layout(margin=dict(t=62))
+    fig.update_layout(shapes=list(fig.layout.shapes) + shapes, annotations=list(fig.layout.annotations) + anns)
 
 
 def fmt(d) -> str:
@@ -969,8 +972,9 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                              gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
-            month_header(fig, *xrange, days=horizon <= 3)
             focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
+            if not focus:
+                month_header(fig, *xrange, days=horizon <= 3)
             bar = st.container(horizontal=True, horizontal_alignment="right")
             if focus:
                 bar.button("Back to all markets", key="tl_back", on_click=lambda: st.session_state.update(tl_focus=False))
