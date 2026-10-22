@@ -760,7 +760,7 @@ def has_data() -> bool:
 TAG_COL = {"Coffee": "#8b5a2b", "Cocoa": "#6d4c41", "Sugar": "#2a8c8c", "Cotton": "#5b74a8"}
 
 
-def events_focus(win: pd.DataFrame) -> None:
+def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart") -> None:
     """Events only: every event on its own row with its name on it; multi-day events as bars, one-day events as stars."""
     ev = win.drop_duplicates("id").sort_values(["start", "title"]).reset_index(drop=True)
     fig = go.Figure()
@@ -789,7 +789,7 @@ def events_focus(win: pd.DataFrame) -> None:
                      tickfont=dict(size=10.5, color="#8a94a8"))
     fig.update_yaxes(range=[len(ev) - 0.4, -0.6], showticklabels=False, showgrid=False, zeroline=False)
     month_header(fig, *xrange, days=horizon <= 3)
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="tl_focus_chart")
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=key)
 
 
 if tab_gantt.open is not False:   # lazy: only the open tab runs
@@ -1238,6 +1238,11 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
                                       type="primary" if d == today else "secondary"):
                         entry_dialog(d)
 
+        ent_win = by_day(manual)
+        ent_win = ent_win[ent_win["date"].between(xrange[0], xrange[1])]
+        if not ent_win.empty:                                     # the same Focus view as the Market Timeline
+            st.markdown('<div class="sec">Events timeline</div>', unsafe_allow_html=True)
+            events_focus(ent_win, key="ent_focus_chart")
         st.markdown('<div class="sec">Saved events</div>', unsafe_allow_html=True)
         if manual.empty:
             st.markdown('<div class="card-desc">No manual events yet.</div>', unsafe_allow_html=True)
