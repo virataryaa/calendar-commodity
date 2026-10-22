@@ -266,24 +266,24 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 
 /* Entry calendar: one button per day */
 .st-key-entry_box { max-width: 620px; margin: 4px auto 6px; padding: 12px 14px 10px; border-radius: 18px; gap: .45rem;
-  background: linear-gradient(160deg, rgba(240,253,250,.95), rgba(236,254,255,.9) 60%, rgba(224,242,254,.85));
-  border: 1px solid rgba(13,148,136,.16); box-shadow: 0 10px 30px rgba(13,148,136,.10), inset 0 1px 0 rgba(255,255,255,.9); }
-.ent-title { text-align: center; font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem; font-weight: 600; color: #0f4c5c; padding-top: 2px; }
-.ent-dow { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: #5f8f94; font-weight: 600; text-align: center; }
+  background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+  border: 1px solid rgba(43,74,138,.16); box-shadow: 0 10px 30px rgba(43,74,138,.10), inset 0 1px 0 rgba(255,255,255,.9); }
+.ent-title { text-align: center; font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem; font-weight: 600; color: #1e3a6e; padding-top: 2px; }
+.ent-dow { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: #7a8bab; font-weight: 600; text-align: center; }
 .st-key-entry_box [data-testid="stHorizontalBlock"] { gap: 6px !important; }
 .st-key-ent_prev button, .st-key-ent_next button { min-height: 30px; height: 30px; border-radius: 999px; background: rgba(255,255,255,.7);
-  border: 1px solid rgba(13,148,136,.25); }
-.st-key-ent_prev button p, .st-key-ent_next button p { color: #0f766e !important; font-size: 12px; font-weight: 600; }
-.st-key-entry_grid button { min-height: 38px; height: 38px; padding: 0 !important; border-radius: 10px; border: 1px solid rgba(13,148,136,.14);
+  border: 1px solid rgba(43,74,138,.25); }
+.st-key-ent_prev button p, .st-key-ent_next button p { color: #1e3a8a !important; font-size: 12px; font-weight: 600; }
+.st-key-entry_grid button { min-height: 38px; height: 38px; padding: 0 !important; border-radius: 10px; border: 1px solid rgba(43,74,138,.14);
   background: rgba(255,255,255,.72); transition: all .15s; }
-.st-key-entry_grid button p { font-size: 12px; color: #134e4a; }
-.st-key-entry_grid button:hover { border-color: #14b8a6; background: #ccfbf1; box-shadow: 0 2px 8px rgba(20,184,166,.2); }
-.st-key-entry_grid [class*="st-key-entev_"] button { background: linear-gradient(180deg, #ccfbf1, #99f6e4); border-color: rgba(13,148,136,.35); }
-.st-key-entry_grid [class*="st-key-entev_"] button p { color: #115e59; font-weight: 700; }
-.st-key-entry_grid button[kind="primary"] { background: #f0fdfa; border: 1.5px solid #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
-.st-key-entry_grid button[kind="primary"] p { color: #0f766e !important; font-weight: 700; }
-.st-key-ent_tl_box { padding: 8px 12px 4px; border-radius: 18px; background: linear-gradient(160deg, rgba(240,253,250,.9), rgba(236,254,255,.85) 60%, rgba(224,242,254,.8));
-  border: 1px solid rgba(13,148,136,.14); box-shadow: 0 8px 26px rgba(13,148,136,.08), inset 0 1px 0 rgba(255,255,255,.9); }
+.st-key-entry_grid button p { font-size: 12px; color: #1e293b; }
+.st-key-entry_grid button:hover { border-color: #4f6fb0; background: #e3ebf8; box-shadow: 0 2px 8px rgba(59,91,170,.2); }
+.st-key-entry_grid [class*="st-key-entev_"] button { background: linear-gradient(180deg, #e3ebf8, #c9d8ee); border-color: rgba(43,74,138,.35); }
+.st-key-entry_grid [class*="st-key-entev_"] button p { color: #1e3a6e; font-weight: 700; }
+.st-key-entry_grid button[kind="primary"] { background: #f3f7fd; border: 1.5px solid #2b4a8a; box-shadow: 0 0 0 3px rgba(43,74,138,.12); }
+.st-key-entry_grid button[kind="primary"] p { color: #1e3a8a !important; font-weight: 700; }
+.st-key-ent_tl_box { padding: 8px 12px 4px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+  border: 1px solid rgba(43,74,138,.14); box-shadow: 0 8px 26px rgba(43,74,138,.08), inset 0 1px 0 rgba(255,255,255,.9); }
 .ent-row { font-size: 12.5px; color: #1a1a2e; padding-top: 7px; }
 .ent-row.m { color: #8a94a8; }
 
@@ -316,6 +316,15 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
   box-shadow: 0 2px 8px rgba(30,58,110,.28), inset 0 1px 0 rgba(255,255,255,.18) !important; }
 .stTabs [data-baseweb="tab"]:not([aria-selected="true"]) p { color: #3b4f7a !important; }
 .stTabs [data-baseweb="tab"]:not([aria-selected="true"]):hover { background: rgba(43,74,138,.07) !important; }
+/* glacier cards: charts and tables in every tab */
+[data-testid="stMain"] [data-testid="stPlotlyChart"] { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+  border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 6px 8px; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
+.st-key-ent_tl_box [data-testid="stPlotlyChart"] { background: none; border: 0; box-shadow: none; padding: 0; }
+.up, .ht { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9)) !important;
+  border: 1px solid rgba(43,74,138,.12) !important; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
+.up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
+.up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
+.up tr:hover td { background: rgba(219,231,250,.35); }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
@@ -577,7 +586,7 @@ def load_table(kind: str, _v: float = 0) -> pd.DataFrame:
 
 def style_fig(fig: go.Figure, height: int) -> go.Figure:
     fig.update_layout(template="plotly_white", height=height, margin=dict(l=8, r=8, t=18, b=6), showlegend=False,
-                      paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
+                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                       font=dict(family="Inter, sans-serif", size=11, color="#1a1a2e"),
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(0,0,0,0.12)",
                                       font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
@@ -796,7 +805,7 @@ def has_data() -> bool:
 
 
 TAG_COL = {"Coffee": "#8b5a2b", "Cocoa": "#6d4c41", "Sugar": "#2a8c8c", "Cotton": "#5b74a8"}
-ICY_COL = {"Coffee": "#5fb3ad", "Cocoa": "#7aa7c7", "Sugar": "#8ed5c8", "Cotton": "#9db8da"}   # Entry tab: icy, subtle
+ICY_COL = {"Coffee": "#7f9ccc", "Cocoa": "#a3b1cf", "Sugar": "#8fb9d9", "Cotton": "#b3bfe0"}   # Entry tab: icy, subtle
 
 
 def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
@@ -814,13 +823,13 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
             fig.add_trace(go.Bar(orientation="h", base=[b0], y=[i], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
                                  marker=dict(color=col, opacity=.55 if icy else .8, cornerradius=6, line_width=0), hovertemplate=hov,
                                  text=[f"  {name}  ·  {sp}"], textposition="inside", insidetextanchor="start",
-                                 textfont=dict(color="#134e4a" if icy else "#ffffff", size=11.5, family="Inter, sans-serif")))
+                                 textfont=dict(color="#1e293b" if icy else "#ffffff", size=11.5, family="Inter, sans-serif")))
         else:
             fig.add_trace(go.Scatter(x=[r["start"]], y=[i], mode="markers+text", hovertemplate=hov,
                                      marker=dict(symbol="star", size=15, color=col, line=dict(color="#ffffff", width=1.5)),
                                      text=[f"  {name}"], textposition="middle right",
-                                     textfont=dict(color="#134e4a" if icy else NAVY, size=12, family="Inter, sans-serif")))
-    fig.add_vline(x=pd.Timestamp(today), line=dict(color="#14b8a6" if icy else NAVY, width=1.2 if icy else 1.5))
+                                     textfont=dict(color="#1e293b" if icy else NAVY, size=12, family="Inter, sans-serif")))
+    fig.add_vline(x=pd.Timestamp(today), line=dict(color="#4f6fb0" if icy else NAVY, width=1.2 if icy else 1.5))
     fig.update_layout(height=90 + 38 * len(ev), showlegend=False, barmode="overlay", margin=dict(l=10, r=10, t=40, b=10),
                       plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
@@ -1153,7 +1162,7 @@ if tab_heat.open is not False:   # lazy: only the open tab runs
             fig3 = go.Figure(go.Heatmap(
                 z=z, x=weeks, y=list(range(len(rows_c))), text=txt, texttemplate="%{text}",
                 textfont=dict(size=10.5), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
-                colorscale=[[0, "#f4f6fb"], [0.001, "#c9d3ea"], [1, NAVY]], zmin=0, xgap=3, ygap=3, showscale=False))
+                colorscale=[[0, "rgba(255,255,255,.55)"], [0.001, "#d6e2f3"], [0.5, "#7f9ccc"], [1, "#1e3a6e"]], zmin=0, xgap=3, ygap=3, showscale=False))
             add_today(fig3)
             style_fig(fig3, 46 * len(rows_c) + 100)
             fig3.update_layout(margin=dict(l=8, r=12, t=40, b=34), hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.18)", align="left",
