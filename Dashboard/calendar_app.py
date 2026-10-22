@@ -332,6 +332,13 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
   transition: box-shadow .2s, border-color .2s; }
 .st-key-tl_focus_btn button:hover { border-color: rgba(122,15,31,.65) !important; box-shadow: 0 0 0 4px rgba(122,15,31,.10), 0 0 22px rgba(122,15,31,.38) !important; }
 .st-key-tl_focus_btn button p { color: #7a0f1f !important; font-weight: 600; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12.5px !important; }
+/* Entry: each month its own glacier card, the outer box just holds them */
+.st-key-entry_box { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+[class*="st-key-entry_grid_"] { padding: 12px 14px 12px; border-radius: 16px; gap: .4rem;
+  background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+  border: 1px solid rgba(43,74,138,.14); box-shadow: 0 6px 22px rgba(30,58,110,.08), inset 0 1px 0 rgba(255,255,255,.95); }
+[class*="st-key-entry_grid_"] .ent-title { padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px solid rgba(43,74,138,.10); }
+.st-key-ent_prev, .st-key-ent_next { max-width: 130px; } .st-key-ent_next { margin-left: auto; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
