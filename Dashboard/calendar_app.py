@@ -265,7 +265,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs button[data-baseweb="tab"]:last-of-type[aria-selected="true"] p { color: #ffffff !important; }
 
 /* Entry calendar: one button per day */
-.st-key-entry_box { max-width: 620px; margin: 4px auto 6px; padding: 12px 14px 10px; border-radius: 18px; gap: .45rem;
+.st-key-entry_box { max-width: 1180px; margin: 4px auto 6px; padding: 12px 14px 10px; border-radius: 18px; gap: .45rem;
   background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
   border: 1px solid rgba(43,74,138,.16); box-shadow: 0 10px 30px rgba(43,74,138,.10), inset 0 1px 0 rgba(255,255,255,.9); }
 .ent-title { text-align: center; font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem; font-weight: 600; color: #1e3a6e; padding-top: 2px; }
@@ -274,14 +274,14 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .st-key-ent_prev button, .st-key-ent_next button { min-height: 30px; height: 30px; border-radius: 999px; background: rgba(255,255,255,.7);
   border: 1px solid rgba(43,74,138,.25); }
 .st-key-ent_prev button p, .st-key-ent_next button p { color: #1e3a8a !important; font-size: 12px; font-weight: 600; }
-.st-key-entry_grid button { min-height: 38px; height: 38px; padding: 0 !important; border-radius: 10px; border: 1px solid rgba(43,74,138,.14);
+[class*="st-key-entry_grid"] button { min-height: 38px; height: 38px; padding: 0 !important; border-radius: 10px; border: 1px solid rgba(43,74,138,.14);
   background: rgba(255,255,255,.72); transition: all .15s; }
-.st-key-entry_grid button p { font-size: 12px; color: #1e293b; }
-.st-key-entry_grid button:hover { border-color: #4f6fb0; background: #e3ebf8; box-shadow: 0 2px 8px rgba(59,91,170,.2); }
-.st-key-entry_grid [class*="st-key-entev_"] button { background: linear-gradient(180deg, #e3ebf8, #c9d8ee); border-color: rgba(43,74,138,.35); }
-.st-key-entry_grid [class*="st-key-entev_"] button p { color: #1e3a6e; font-weight: 700; }
-.st-key-entry_grid button[kind="primary"] { background: #f3f7fd; border: 1.5px solid #2b4a8a; box-shadow: 0 0 0 3px rgba(43,74,138,.12); }
-.st-key-entry_grid button[kind="primary"] p { color: #1e3a8a !important; font-weight: 700; }
+[class*="st-key-entry_grid"] button p { font-size: 12px; color: #1e293b; }
+[class*="st-key-entry_grid"] button:hover { border-color: #4f6fb0; background: #e3ebf8; box-shadow: 0 2px 8px rgba(59,91,170,.2); }
+[class*="st-key-entry_grid"] [class*="st-key-entev_"] button { background: linear-gradient(180deg, #e3ebf8, #c9d8ee); border-color: rgba(43,74,138,.35); }
+[class*="st-key-entry_grid"] [class*="st-key-entev_"] button p { color: #1e3a6e; font-weight: 700; }
+[class*="st-key-entry_grid"] button[kind="primary"] { background: #f3f7fd; border: 1.5px solid #2b4a8a; box-shadow: 0 0 0 3px rgba(43,74,138,.12); }
+[class*="st-key-entry_grid"] button[kind="primary"] p { color: #1e3a8a !important; font-weight: 700; }
 .st-key-ent_tl_box { padding: 8px 12px 4px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
   border: 1px solid rgba(43,74,138,.14); box-shadow: 0 8px 26px rgba(43,74,138,.08), inset 0 1px 0 rgba(255,255,255,.9); }
 .ent-row { font-size: 12.5px; color: #1a1a2e; padding-top: 7px; }
@@ -1258,7 +1258,7 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
         if not gh.enabled():
             st.caption("Saving to this machine only. Add github_token to Streamlit Secrets to share entries.")
         em = st.session_state.setdefault("entry_month", pd.Timestamp(today.year, today.month, 1))
-        with st.container(key="entry_box"):                       # compact icy-teal month picker
+        with st.container(key="entry_box"):                       # this month and the next, side by side
             nav = st.columns([1, 5, 1])
             if nav[0].button("‹ Prev", key="ent_prev", width="stretch"):
                 st.session_state["entry_month"] = em - pd.DateOffset(months=1)
@@ -1266,25 +1266,25 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
             if nav[2].button("Next ›", key="ent_next", width="stretch"):
                 st.session_state["entry_month"] = em + pd.DateOffset(months=1)
                 st.rerun()
-            nav[1].markdown(f'<div class="ent-title">{em:%B %Y}</div>', unsafe_allow_html=True)
-
             days = by_day(manual)
             counts = days.groupby(days["date"].dt.date).size().to_dict()
-            with st.container(key="entry_grid"):
-                hdr = st.columns(7)
-                for i, w in enumerate(WEEKDAYS):
-                    hdr[i].markdown(f'<div class="ent-dow">{w}</div>', unsafe_allow_html=True)
-                for week in calendar.Calendar(firstweekday=0).monthdatescalendar(em.year, em.month):
-                    cols = st.columns(7)
-                    for i, d in enumerate(week):
-                        if d.month != em.month:
-                            cols[i].markdown("&nbsp;", unsafe_allow_html=True)
-                            continue
-                        n = counts.get(d, 0)
-                        label = f"{d.day}" + (f" · {n}" if n else "")
-                        if cols[i].button(label, key=f"{'entev' if n else 'ent'}_{d}", width="stretch",
-                                          type="primary" if d == today else "secondary"):
-                            entry_dialog(d)
+            for j, (col, m) in enumerate(zip(st.columns(2, gap="large"), (em, em + pd.DateOffset(months=1)))):
+                with col, st.container(key=f"entry_grid_{j}"):
+                    st.markdown(f'<div class="ent-title">{m:%B %Y}</div>', unsafe_allow_html=True)
+                    hdr = st.columns(7)
+                    for i, w in enumerate(WEEKDAYS):
+                        hdr[i].markdown(f'<div class="ent-dow">{w}</div>', unsafe_allow_html=True)
+                    for week in calendar.Calendar(firstweekday=0).monthdatescalendar(m.year, m.month):
+                        cols = st.columns(7)
+                        for i, d in enumerate(week):
+                            if d.month != m.month:
+                                cols[i].markdown("&nbsp;", unsafe_allow_html=True)
+                                continue
+                            n = counts.get(d, 0)
+                            label = f"{d.day}" + (f" · {n}" if n else "")
+                            if cols[i].button(label, key=f"{'entev' if n else 'ent'}_{d}", width="stretch",
+                                              type="primary" if d == today else "secondary"):
+                                entry_dialog(d)
 
         ent_win = by_day(manual)
         ent_win = ent_win[ent_win["date"].between(xrange[0], xrange[1])]
