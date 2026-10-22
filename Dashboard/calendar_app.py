@@ -338,6 +338,12 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
   background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
   border: 1px solid rgba(43,74,138,.14); box-shadow: 0 6px 22px rgba(30,58,110,.08), inset 0 1px 0 rgba(255,255,255,.95); }
 [class*="st-key-entry_grid_"] .ent-title { padding-bottom: 2px; }
+[class*="st-key-entry_grid_"] [data-testid="stMarkdown"], [class*="st-key-entry_grid_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+[class*="st-key-entry_grid_"] .ent-dow { padding: 2px 0 4px; line-height: 1.4; }
+.ent-blank { height: 38px; }
+[class*="st-key-entry_grid"] [class*="st-key-entwe_"] button { background: rgba(226,232,240,.55) !important; border-color: rgba(100,116,139,.14) !important; }
+[class*="st-key-entry_grid"] [class*="st-key-entwe_"] button p { color: #94a3b8 !important; }
+[class*="st-key-entry_grid"] [class*="st-key-entwe_"] button:hover { background: #e3ebf8 !important; }
 .st-key-ent_prev, .st-key-ent_next { max-width: 130px; } .st-key-ent_next { margin-left: auto; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
@@ -1286,12 +1292,13 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
                     for week in weeks:
                         cols = st.columns(7)
                         for i, d in enumerate(week):
-                            if d.month != m.month:
-                                cols[i].markdown("&nbsp;", unsafe_allow_html=True)
+                            if d.month != m.month:                       # blank cell, same height as a day
+                                cols[i].markdown('<div class="ent-blank"></div>', unsafe_allow_html=True)
                                 continue
                             n = counts.get(d, 0)
-                            label = f"{d.day}" + (f" · {n}" if n else "")
-                            if cols[i].button(label, key=f"{'entev' if n else 'ent'}_{d}", width="stretch",
+                            label = f"{d.day}" + (f"  :gray[· {n}]" if n else "")
+                            kind = "entev" if n else ("entwe" if d.weekday() >= 5 else "ent")   # event day / weekend / weekday
+                            if cols[i].button(label, key=f"{kind}_{d}", width="stretch",
                                               type="primary" if d == today else "secondary"):
                                 entry_dialog(d)
 
