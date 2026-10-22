@@ -152,10 +152,9 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .card-desc { color: #5a6688; font-size: 0.82rem; margin-bottom: 12px; }
 
 /* Legend */
-.lgd { display: flex; width: fit-content; max-width: 100%; gap: 20px; flex-wrap: wrap; font-size: 12.5px; color: #5a6688; margin: 0 0 14px;
-  padding: 9px 22px; border-radius: 999px; background: linear-gradient(160deg, rgba(250,252,255,.9), rgba(236,242,251,.85));
-  border: 1px solid rgba(43,74,138,.10); box-shadow: 0 2px 10px rgba(30,58,110,.05), inset 0 1px 0 rgba(255,255,255,.9);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.lgd { display: flex; width: fit-content; max-width: 100%; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #5a6688; margin: 0 0 14px;
+  padding: 7px 18px; border-radius: 999px; background: rgba(255,255,255,.72); border: 1px solid rgba(15,23,42,.06);
+  box-shadow: 0 2px 10px rgba(15,23,42,.04), inset 0 1px 0 rgba(255,255,255,.9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .lgd span { display: inline-flex; align-items: center; gap: 6px; }
 .lgd i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
@@ -310,6 +309,13 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .mg-day .n { color: #1e293b; } .mg-day.we .n { color: #a7b3c9; } .mg-day.past .n { color: #a7b3c9; }
 .mg-day.today { background: rgba(219,231,250,.45); box-shadow: inset 0 0 0 1.5px #2b4a8a; }
 .mg-day.today .n { background: #1e3a8a; color: #ffffff; }
+/* top tab pill: glacier */
+.stTabs [data-baseweb="tab-list"] { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(236,242,251,.93) 60%, rgba(229,237,249,.9)) !important;
+  border: 1px solid rgba(43,74,138,.14) !important; box-shadow: 0 4px 16px rgba(30,58,110,.08), inset 0 1px 0 rgba(255,255,255,.95) !important; }
+.stTabs [aria-selected="true"]:not(:last-of-type) { background: linear-gradient(180deg, #2b4a8a, #1e3a6e) !important;
+  box-shadow: 0 2px 8px rgba(30,58,110,.28), inset 0 1px 0 rgba(255,255,255,.18) !important; }
+.stTabs [data-baseweb="tab"]:not([aria-selected="true"]) p { color: #3b4f7a !important; }
+.stTabs [data-baseweb="tab"]:not([aria-selected="true"]):hover { background: rgba(43,74,138,.07) !important; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
