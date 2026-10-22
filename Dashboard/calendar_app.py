@@ -325,8 +325,9 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
-.st-key-tl_focus_btn { margin-top: 18px; }
-.st-key-tl_focus_btn button { width: 100%; border-radius: 999px !important; min-height: 36px !important; background: rgba(255,255,255,.85) !important;
+.st-key-tl_focus_wrap { position: relative; height: 0; z-index: 20; overflow: visible; }
+.st-key-tl_focus_wrap > div { position: absolute; right: 4px; top: calc(1rem + 4px); width: auto !important; }
+.st-key-tl_focus_btn button { border-radius: 999px !important; min-height: 36px !important; background: rgba(255,255,255,.85) !important;
   border: 1px solid rgba(122,15,31,.42) !important; box-shadow: 0 0 0 3px rgba(122,15,31,.07), 0 0 16px rgba(122,15,31,.26) !important;
   transition: box-shadow .2s, border-color .2s; }
 .st-key-tl_focus_btn button:hover { border-color: rgba(122,15,31,.65) !important; box-shadow: 0 0 0 4px rgba(122,15,31,.10), 0 0 22px rgba(122,15,31,.38) !important; }
@@ -559,9 +560,6 @@ with st.sidebar:
     horizon = st.segmented_control("Chart horizon", [3, 6, 12, 24], default=3, key="horizon",
                                    label_visibility="collapsed") or 3
 
-    st.markdown(f'<div class="sb-status">{"All markets" if not picked else f"{len(comms)} market" + "s" * (len(comms) != 1)} · '
-                f'{"all" if len(evsel) == len(EVENTS) else len(evsel)} event types<br>'
-                'Nothing selected means all.</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------------------
 # main: Calendar | Timeline
@@ -683,6 +681,10 @@ def fmt(d) -> str:
 manual = load_manual()
 man_view = by_day(manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0])
 
+if st.session_state.get("main_tab") == "Market Timeline" and not man_view.empty:   # glowing switch, far right of the tab bar
+    with st.container(key="tl_focus_wrap"):
+        _f = bool(st.session_state.get("tl_focus"))
+        st.button("All markets" if _f else "Focus events", key="tl_focus_btn", on_click=lambda f=_f: st.session_state.update(tl_focus=not f))
 tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
     ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
     key="main_tab", on_change="rerun")
@@ -1030,9 +1032,6 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
             focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
-            if not man_win.empty:                                  # one glowing switch at the foot of the sidebar
-                st.sidebar.button("All markets" if focus else "Focus events", key="tl_focus_btn",
-                                  on_click=lambda f=focus: st.session_state.update(tl_focus=not f))
             if not focus:
                 month_header(fig, *xrange, days=horizon <= 3)
             if focus:
