@@ -996,8 +996,6 @@ if tab_roll.open is not False:   # lazy: only the open tab runs
     with tab_roll:
         if has_data():
             # 2. Roll windows -------------------------------------------------------------------------
-            st.markdown('<div class="card-desc">Notice window per contract, with index roll, option expiry and holidays.</div>',
-                        unsafe_allow_html=True)
             st.markdown(
                 '<div class="lgd">'
                 '<span><i style="background:#c3cde4;width:18px"></i>Notice window (FND → LND)</span>'
@@ -1085,8 +1083,6 @@ if tab_heat.open is not False:   # lazy: only the open tab runs
             st.markdown('<div class="sb-label" style="margin-top:2px">Show in heatmap</div>', unsafe_allow_html=True)
             heat_ev = st.pills("Show in heatmap", list(EVENTS), selection_mode="multi", default=list(EVENTS),
                                format_func=lambda k: EVENTS[k][1], key="heat_ev", label_visibility="collapsed") or []
-            st.markdown('<div class="card-desc">Events per week; darker = busier. Hover a cell for the detail.</div>',
-                        unsafe_allow_html=True)
             e = events[events["commodity"].isin(rows_c) & events["event"].isin(heat_ev)
                        & events["date"].between(win0, win1)].copy()
             e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
@@ -1137,9 +1133,7 @@ if tab_hol.open is not False:   # lazy: only the open tab runs
         else:
             yr = st.pills("Holiday year", [int(y) for y in sorted(holidays["date"].dt.year.unique())],
                           default=start.year, label_visibility="collapsed") or start.year
-            st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>'
-                        '<div class="card-desc">New York: KC, CC, SB, CT. Europe: RC, LCC, LSU.</div>',
-                        unsafe_allow_html=True)
+            st.markdown(f'<div class="page-title" style="margin-top:28px">Exchange Holidays {yr}</div>', unsafe_allow_html=True)
             hy = holidays[(holidays["date"].dt.year == yr) & holidays["exchange"].isin(exsel)]
             rows = ""
             for d, g in hy.groupby("date"):
@@ -1205,9 +1199,7 @@ def edit_dialog(ev) -> None:
 
 if tab_ent.open is not False:   # lazy: only the open tab runs
     with tab_ent:
-        st.markdown('<div class="page-title" style="margin:6px 0 2px">Add an event</div>'
-                    '<div class="card-desc">Click a day, tag it Coffee, Cocoa, Sugar or Cotton, and save. '
-                    'It shows on the Calendar and Upcoming tabs.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="page-title" style="margin:6px 0 2px">Add an event</div>', unsafe_allow_html=True)
         if not gh.enabled():
             st.caption("Saving to this machine only. Add github_token to Streamlit Secrets to share entries.")
         em = st.session_state.setdefault("entry_month", pd.Timestamp(today.year, today.month, 1))
