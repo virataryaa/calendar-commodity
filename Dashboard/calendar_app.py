@@ -325,15 +325,16 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
-.st-key-tl_top { gap: 12px; } .st-key-tl_top .lgd { margin: 0; }
+.st-key-tl_top { gap: 12px; align-items: center !important; } .st-key-tl_top .lgd { margin: 0; }
+.st-key-tl_top > div { margin: 0 !important; align-self: center !important; }
 .st-key-tl_top [data-testid="stButton"] { margin-left: auto; width: auto; }
-.st-key-tl_focus_btn button, .st-key-tl_back button { border-radius: 999px !important; min-height: 0 !important; padding: 7px 18px !important;
-  background: rgba(255,255,255,.72) !important; border: 1px solid rgba(59,91,170,.32) !important;
-  box-shadow: 0 0 0 3px rgba(59,91,170,.07), 0 0 14px rgba(59,91,170,.20), inset 0 1px 0 rgba(255,255,255,.9);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: box-shadow .2s; }
-.st-key-tl_focus_btn button:hover, .st-key-tl_back button:hover { box-shadow: 0 0 0 4px rgba(59,91,170,.10), 0 0 18px rgba(59,91,170,.30) !important; }
-.st-key-tl_focus_btn button p, .st-key-tl_back button p { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12px !important; color: #1e3a6e !important; font-weight: 600; }
-.st-key-tl_focus_btn button:hover, .st-key-tl_back button:hover { border-color: rgba(43,74,138,.25) !important; }
+.st-key-tl_top button[kind], .st-key-tl_back button[kind] { border-radius: 999px !important; min-height: 0 !important; height: 35px !important;
+  padding: 0 20px !important; background: rgba(255,255,255,.8) !important; border: 1px solid rgba(59,91,170,.38) !important;
+  box-shadow: 0 0 0 3px rgba(59,91,170,.09), 0 0 16px rgba(59,91,170,.28), inset 0 1px 0 rgba(255,255,255,.9) !important;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: box-shadow .2s, border-color .2s; }
+.st-key-tl_top button[kind]:hover { border-color: rgba(59,91,170,.6) !important;
+  box-shadow: 0 0 0 4px rgba(59,91,170,.12), 0 0 22px rgba(59,91,170,.40), inset 0 1px 0 rgba(255,255,255,.9) !important; }
+.st-key-tl_top button[kind] p { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12.5px !important; color: #1e3a6e !important; font-weight: 600; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
