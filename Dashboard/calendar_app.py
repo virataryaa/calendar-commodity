@@ -325,6 +325,12 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
+.st-key-tl_focus_btn { margin-top: 18px; }
+.st-key-tl_focus_btn button { width: 100%; border-radius: 999px !important; min-height: 36px !important; background: rgba(255,255,255,.85) !important;
+  border: 1px solid rgba(122,15,31,.42) !important; box-shadow: 0 0 0 3px rgba(122,15,31,.07), 0 0 16px rgba(122,15,31,.26) !important;
+  transition: box-shadow .2s, border-color .2s; }
+.st-key-tl_focus_btn button:hover { border-color: rgba(122,15,31,.65) !important; box-shadow: 0 0 0 4px rgba(122,15,31,.10), 0 0 22px rgba(122,15,31,.38) !important; }
+.st-key-tl_focus_btn button p { color: #7a0f1f !important; font-weight: 600; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12.5px !important; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
@@ -535,8 +541,7 @@ with st.sidebar:
     show_man = st.toggle("Manual events", value=True)
     if st.session_state.pop("_tl_focus_req", False):              # a click on a star / event bar asks for focus
         st.session_state["tl_focus"] = True
-    if st.session_state.get("main_tab") == "Market Timeline":      # only meaningful there
-        st.toggle("Focus events", key="tl_focus")
+
     man_groups = []
     if show_man:
         man_groups = st.pills("Manual groups", list(GROUPS), selection_mode="multi", default=[], key="man_groups",
@@ -1025,6 +1030,9 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
             focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
+            if not man_win.empty:                                  # one glowing switch at the foot of the sidebar
+                st.sidebar.button("All markets" if focus else "Focus events", key="tl_focus_btn",
+                                  on_click=lambda f=focus: st.session_state.update(tl_focus=not f))
             if not focus:
                 month_header(fig, *xrange, days=horizon <= 3)
             if focus:
