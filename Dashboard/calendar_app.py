@@ -54,14 +54,19 @@ def load_manual() -> pd.DataFrame:
 
 
 def by_day(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per day: a multi-day event is repeated on every day it covers, titled 'Name (2/5)'."""
+    """One row per day an event covers, with k (day number), n (length), start and stop. One-day events: k = n = 1."""
     rows = []
     for r in df.to_dict("records"):
         e = r["end"] if pd.notna(r["end"]) and r["end"] > r["date"] else r["date"]
         n = min((e - r["date"]).days + 1, 366)
         for k in range(n):
-            rows.append({**r, "date": r["date"] + pd.Timedelta(days=k), "title": r["title"] + (f" ({k + 1}/{n})" if n > 1 else "")})
-    return pd.DataFrame(rows, columns=df.columns) if rows else df.iloc[0:0]
+            rows.append({**r, "date": r["date"] + pd.Timedelta(days=k), "k": k + 1, "n": n, "start": r["date"], "stop": e})
+    return pd.DataFrame(rows, columns=list(df.columns) + ["k", "n", "start", "stop"])
+
+
+def span_txt(r) -> str:
+    """'10–14 Nov · 5 days' for a multi-day event row, '' for a one-day one."""
+    return f"{r.start:%d %b}–{r.stop:%d %b} · {r.n} days" if r.n > 1 else ""
 
 
 def save_manual(change, message: str) -> None:
@@ -246,6 +251,10 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 
 /* Manual events */
 .chip.MAN { border-color: #f3d2b3; } .chip.MAN .t { background: #d9822b; }
+.chip.MAN.multi { border-radius: 6px 0 0 6px; margin-right: -5px; align-self: stretch; }
+.chip.MAN.rib { align-self: stretch; height: 7px; min-height: 0; padding: 0; margin: 4px -5px 0; border: 0; border-radius: 0;
+  background: linear-gradient(90deg, rgba(217,130,43,.55), rgba(217,130,43,.4)); }
+.chip.MAN.rib.end { margin-right: 4px; border-radius: 0 4px 4px 0; }
 .pop .pdesc { white-space: normal; max-width: 260px; color: #1a1a2e; padding: 3px 0 1px; }
 
 /* Entry tab (last tab) in orange */
@@ -420,12 +429,16 @@ def month_card(year: int, month: int, ev: pd.DataFrame, hol: pd.DataFrame, today
             if mg_ is not None:
                 n_events += len(mg_)
                 for r in mg_.itertuples():
-                    t, dsc = html.escape(r.title), html.escape(r.description)
-                    pop = (f'<div class="pop"><div class="ph">{t}</div><div class="ps">{r.group} event · manual entry</div>'
+                    t, dsc, sp = html.escape(r.title), html.escape(r.description), span_txt(r)
+                    pop = (f'<div class="pop"><div class="ph">{t}</div><div class="ps">{r.group} event · manual entry'
+                           + (f' · {sp}' if sp else "") + '</div>'
                            + (f'<div class="pdesc">{dsc}</div>' if dsc else "")
-                           + f'<div class="pf">{_when(d, today)}</div></div>')
-                    chips += (f'<div class="chip MAN"><span class="c">{t}</span>'
-                              f'<span class="t">{r.group[:3].upper()}</span>{pop}</div>')
+                           + f'<div class="pf">{_when(d, today) if r.n == 1 else f"day {r.k} of {r.n}"}</div></div>')
+                    if r.n > 1 and r.k > 1 and d.weekday() != 0:      # middle of a multi-day event: ribbon only
+                        chips += f'<div class="chip MAN rib{" end" if r.k == r.n else ""}">{pop}</div>'
+                    else:
+                        chips += (f'<div class="chip MAN{" multi" if r.n > 1 else ""}"><span class="c">{t}</span>'
+                                  f'<span class="t">{f"{r.n}D" if r.n > 1 else r.group[:3].upper()}</span>{pop}</div>')
             g = by_day.get(d)
             if g is not None:
                 g = g.assign(o=g["event"].map(order)).sort_values(["o", "commodity", "code"])
@@ -608,7 +621,7 @@ def fmt(d) -> str:
 
 
 manual = load_manual()
-man_view = by_day(manual[manual["group"].isin(man_groups)]) if show_man else manual.iloc[0:0]
+man_view = by_day(manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0])
 
 tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
     ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
@@ -629,8 +642,11 @@ if tab_up.open is not False:   # lazy: only the open tab runs
             hu = holidays[holidays["exchange"].isin(exsel) & holidays["date"].between(t0, t1)]
             for (d, name), g in hu.groupby(["date", "holiday"]):
                 items.append((d, 1, 0, (name, sorted(g["exchange"], key=list(EXCHANGES).index))))
-        for r in man_view[man_view["date"].between(t0, t1)].itertuples():
-            items.append((r.date, 2, 0, r))
+        mv = man_view[man_view["date"].between(t0, t1)]
+        mv = mv[(mv["k"] == 1) | (mv["date"] == mv["date"].min())]   # a running event shows once, on today
+        for r in mv.itertuples():
+            sp = span_txt(r)
+            items.append((r.date, 2, 0, r._replace(title=r.title + (f" · {sp}" + (f" · ongoing, day {r.k}/{r.n}" if r.k > 1 else "") if sp else ""))))
         items.sort(key=lambda x: (x[0], x[1], x[2]))
 
         if not items:
@@ -861,8 +877,16 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                     x=[(span1 - span0).total_seconds() * 1000], width=0.46, hoverinfo="skip",
                     marker=dict(color="rgba(217,130,43,0.08)", cornerradius=6, line_width=0)))
                 # one star per day: several events on the same day share it ("+N"), the hover lists them all
+                for r in man_win[man_win["n"] > 1].drop_duplicates("id").itertuples():   # multi-day: a bar start -> end
+                    b0, b1 = max(r.start, span0), r.stop + pd.Timedelta(days=1)
+                    fig.add_trace(go.Bar(
+                        orientation="h", base=[b0], y=[pos["man#all"]], x=[(b1 - b0).total_seconds() * 1000], width=0.30,
+                        marker=dict(color="rgba(217,130,43,0.42)", cornerradius=5, line_width=0),
+                        hovertemplate=(f"<span style='color:{MAN_COLOR}'>★</span>  <b><span style='color:{NAVY}'>{html.escape(r.title)}</span></b>"
+                                       f"   <span style='color:#a3abbd'>{r.group}</span><br><br>{span_txt(r)}<extra></extra>")))
+                first = man_win[(man_win["k"] == 1) | (man_win["date"] == man_win["date"].min())]
                 mx, my, mt, mh = [], [], [], []
-                for d, g in man_win.sort_values(["date", "group", "title"]).groupby("date"):
+                for d, g in first.sort_values(["date", "group", "title"]).groupby("date"):
                     first_t = html.escape(g["title"].iloc[0])
                     first_t = first_t if len(first_t) <= 18 else first_t[:17] + "…"
                     mx.append(d)
@@ -871,6 +895,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                     items = "<br><br>".join(
                         f"<span style='color:{MAN_COLOR}'>★</span>  <b><span style='color:{NAVY}'>{html.escape(r.title)}</span></b>"
                         f"   <span style='color:#a3abbd'>{r.group}</span>"
+                        + (f"<br><span style='color:{MAN_COLOR}'>{span_txt(r)}</span>" if r.n > 1 else "")
                         + (f"<br><span style='color:#5a6688'>{html.escape(r.description)}</span>" if r.description else "")
                         for r in g.itertuples())
                     n = len(g)
