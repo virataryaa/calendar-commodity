@@ -317,7 +317,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs [data-baseweb="tab"]:not([aria-selected="true"]) p { color: #3b4f7a !important; }
 .stTabs [data-baseweb="tab"]:not([aria-selected="true"]):hover { background: rgba(43,74,138,.07) !important; }
 /* glacier cards: charts and tables in every tab */
-[data-testid="stMain"] [data-testid="stPlotlyChart"] { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
+[data-testid="stMain"] [data-testid="stPlotlyChart"] { background: #ffffff;
   border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 6px 8px; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
 .st-key-ent_tl_box [data-testid="stPlotlyChart"] { background: none; border: 0; box-shadow: none; padding: 0; }
 .up, .ht { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9)) !important;
@@ -325,16 +325,6 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
-.st-key-tl_top { gap: 12px; align-items: center !important; } .st-key-tl_top .lgd { margin: 0; }
-.st-key-tl_top > div { margin: 0 !important; align-self: center !important; }
-.st-key-tl_top [data-testid="stButton"] { margin-left: auto; width: auto; }
-.st-key-tl_top button[kind], .st-key-tl_back button[kind] { border-radius: 999px !important; min-height: 0 !important; height: 35px !important;
-  padding: 0 20px !important; background: rgba(255,255,255,.8) !important; border: 1px solid rgba(59,91,170,.38) !important;
-  box-shadow: 0 0 0 3px rgba(59,91,170,.09), 0 0 16px rgba(59,91,170,.28), inset 0 1px 0 rgba(255,255,255,.9) !important;
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: box-shadow .2s, border-color .2s; }
-.st-key-tl_top button[kind]:hover { border-color: rgba(59,91,170,.6) !important;
-  box-shadow: 0 0 0 4px rgba(59,91,170,.12), 0 0 22px rgba(59,91,170,.40), inset 0 1px 0 rgba(255,255,255,.9) !important; }
-.st-key-tl_top button[kind] p { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12.5px !important; color: #1e3a6e !important; font-weight: 600; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
@@ -543,6 +533,10 @@ with st.sidebar:
     st.markdown('<div class="sb-sec">Show</div>', unsafe_allow_html=True)
     show_hol = st.toggle("Exchange holidays", value=True)
     show_man = st.toggle("Manual events", value=True)
+    if st.session_state.pop("_tl_focus_req", False):              # a click on a star / event bar asks for focus
+        st.session_state["tl_focus"] = True
+    if st.session_state.get("main_tab") == "Market Timeline":      # only meaningful there
+        st.toggle("Focus events", key="tl_focus")
     man_groups = []
     if show_man:
         man_groups = st.pills("Manual groups", list(GROUPS), selection_mode="multi", default=[], key="man_groups",
@@ -852,8 +846,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
 
 if tab_gantt.open is not False:   # lazy: only the open tab runs
     with tab_gantt:
-        tl_top = st.container(horizontal=True, vertical_alignment="center", key="tl_top")   # legend + Focus events on one row
-        tl_top.markdown(
+        st.markdown(
             '<div class="lgd">'
             '<span><i style="background:#c3cde4;width:20px;border-radius:4px"></i>Notice window</span>'
             + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in ["FND", "LTD", "LND", "OPT"])
@@ -1034,13 +1027,9 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
             if not focus:
                 month_header(fig, *xrange, days=horizon <= 3)
-            bar = tl_top
             if focus:
-                bar.button("Back to all markets", key="tl_back", on_click=lambda: st.session_state.update(tl_focus=False))
                 events_focus(man_win)
             else:
-                if not man_win.empty:
-                    bar.button("Focus events", key="tl_focus_btn", on_click=lambda: st.session_state.update(tl_focus=True))
                 k = st.session_state.get("tl_k", 0)                # a fresh key after each click clears plotly's selection dimming
                 sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
                                       on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
@@ -1048,7 +1037,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                 if pts:
                     st.session_state["tl_k"] = k + 1
                     if "man#all" in pos and any(abs(float(p.get("y", -99)) - pos["man#all"]) < 0.4 for p in pts):
-                        st.session_state["tl_focus"] = True     # clicked a star or an event bar
+                        st.session_state["_tl_focus_req"] = True     # clicked a star or an event bar -> sidebar switch turns on
                     st.rerun()
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
