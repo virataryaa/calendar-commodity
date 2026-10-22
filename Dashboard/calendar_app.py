@@ -325,6 +325,13 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
+.st-key-tl_top { gap: 12px; } .st-key-tl_top .lgd { margin: 0; }
+.st-key-tl_top [data-testid="stButton"] { margin-left: auto; width: auto; }
+.st-key-tl_focus_btn button, .st-key-tl_back button { border-radius: 999px !important; min-height: 0 !important; padding: 7px 18px !important;
+  background: rgba(255,255,255,.72) !important; border: 1px solid rgba(15,23,42,.06) !important;
+  box-shadow: 0 2px 10px rgba(15,23,42,.04), inset 0 1px 0 rgba(255,255,255,.9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.st-key-tl_focus_btn button p, .st-key-tl_back button p { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12px !important; color: #1e3a6e !important; font-weight: 600; }
+.st-key-tl_focus_btn button:hover, .st-key-tl_back button:hover { border-color: rgba(43,74,138,.25) !important; }
 /* polished face for every secondary / sub text */
 .lgd, .card-desc, .mg-name small, .mg-dow, .mg-count, .ent-dow, .ent-row, .ent-row.m, .sb-sub, .sb-sec, .pop .ps, .pop .pf, .pop .pdesc,
 .ht th, [data-testid="stCaptionContainer"], [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, .stToggle p {
@@ -842,7 +849,8 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
 
 if tab_gantt.open is not False:   # lazy: only the open tab runs
     with tab_gantt:
-        st.markdown(
+        tl_top = st.container(horizontal=True, vertical_alignment="center", key="tl_top")   # legend + Focus events on one row
+        tl_top.markdown(
             '<div class="lgd">'
             '<span><i style="background:#c3cde4;width:20px;border-radius:4px"></i>Notice window</span>'
             + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in ["FND", "LTD", "LND", "OPT"])
@@ -1023,7 +1031,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
             if not focus:
                 month_header(fig, *xrange, days=horizon <= 3)
-            bar = st.container(horizontal=True, horizontal_alignment="right")
+            bar = tl_top
             if focus:
                 bar.button("Back to all markets", key="tl_back", on_click=lambda: st.session_state.update(tl_focus=False))
                 events_focus(man_win)
