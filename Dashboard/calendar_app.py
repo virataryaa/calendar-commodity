@@ -754,6 +754,41 @@ def has_data() -> bool:
     return not fut.empty
 
 
+TAG_COL = {"Coffee": "#8b5a2b", "Cocoa": "#6d4c41", "Sugar": "#2a8c8c", "Cotton": "#5b74a8"}
+
+
+def events_focus(win: pd.DataFrame) -> None:
+    """Events only: every event on its own row with its name on it; multi-day events as bars, one-day events as stars."""
+    ev = win.drop_duplicates("id").sort_values(["start", "title"]).reset_index(drop=True)
+    fig = go.Figure()
+    for i, r in ev.iterrows():
+        col = TAG_COL.get(r["group"], MAN_COLOR)
+        name, sp = html.escape(r["title"]), span_txt(r)
+        hov = (f"<b><span style='color:{NAVY}'>{name}</span></b>   <span style='color:#a3abbd'>{r['group']}</span><br>"
+               + (sp or f"{r['start']:%a %d %b %Y}")
+               + (f"<br><br><span style='color:#5a6688'>{html.escape(r['description'])}</span>" if r["description"] else "") + "<extra></extra>")
+        if r["n"] > 1:
+            b0, b1 = max(r["start"], xrange[0]), r["stop"] + pd.Timedelta(days=1)
+            fig.add_trace(go.Bar(orientation="h", base=[b0], y=[i], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
+                                 marker=dict(color=col, opacity=.8, cornerradius=6, line_width=0), hovertemplate=hov,
+                                 text=[f"  {name}  ·  {sp}"], textposition="inside", insidetextanchor="start",
+                                 textfont=dict(color="#ffffff", size=11.5, family="Inter, sans-serif")))
+        else:
+            fig.add_trace(go.Scatter(x=[r["start"]], y=[i], mode="markers+text", hovertemplate=hov,
+                                     marker=dict(symbol="star", size=15, color=col, line=dict(color="#ffffff", width=1.5)),
+                                     text=[f"  {name}"], textposition="middle right",
+                                     textfont=dict(color=NAVY, size=12, family="Inter, sans-serif")))
+    fig.add_vline(x=pd.Timestamp(today), line=dict(color=NAVY, width=1.5))
+    fig.update_layout(height=90 + 38 * len(ev), showlegend=False, barmode="overlay", margin=dict(l=10, r=10, t=40, b=10),
+                      plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                      hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
+    fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
+                     tickfont=dict(size=10.5, color="#8a94a8"))
+    fig.update_yaxes(range=[len(ev) - 0.4, -0.6], showticklabels=False, showgrid=False, zeroline=False)
+    month_header(fig, *xrange, days=horizon <= 3)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key="tl_focus_chart")
+
+
 if tab_gantt.open is not False:   # lazy: only the open tab runs
     with tab_gantt:
         st.markdown(
@@ -935,7 +970,23 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
             month_header(fig, *xrange, days=horizon <= 3)
-            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+            focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
+            bar = st.container(horizontal=True, horizontal_alignment="right")
+            if focus:
+                bar.button("Back to all markets", key="tl_back", on_click=lambda: st.session_state.update(tl_focus=False))
+                events_focus(man_win)
+            else:
+                if not man_win.empty:
+                    bar.button("Focus events", key="tl_focus_btn", on_click=lambda: st.session_state.update(tl_focus=True))
+                k = st.session_state.get("tl_k", 0)                # a fresh key after each click clears plotly's selection dimming
+                sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
+                                      on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
+                pts = (sel.selection.points if sel and sel.selection else []) or []
+                if pts:
+                    st.session_state["tl_k"] = k + 1
+                    if "man#all" in pos and any(abs(float(p.get("y", -99)) - pos["man#all"]) < 0.4 for p in pts):
+                        st.session_state["tl_focus"] = True     # clicked a star or an event bar
+                    st.rerun()
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
     with tab_roll:
