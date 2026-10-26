@@ -28,7 +28,7 @@ MAN_PATH = "Database/manual_events.csv"          # same file, path inside the Gi
 MAN_COLS = ["id", "date", "group", "title", "description", "created", "end", "repeat", "until"]   # end blank = one-day event
 REPEATS = {"": "Does not repeat", "weekly": "Weekly", "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly"}
 REPEAT_HORIZON = 730   # days ahead an open-ended series is drawn
-GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"]}
+GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"], "General": []}   # General: not tied to one market (FOMC, CPI, conferences)
 MAN_COLOR = "#d9822b"
 
 
