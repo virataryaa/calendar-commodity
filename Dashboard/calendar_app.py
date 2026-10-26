@@ -1175,14 +1175,39 @@ if tab_heat.open is not False:   # lazy: only the open tab runs
             # 3. Weekly event heatmap ----------------------------------------------------------------
             # its own event filter, independent of the sidebar's
             st.markdown('<div class="sb-label" style="margin-top:2px">Show in heatmap</div>', unsafe_allow_html=True)
-            heat_ev = st.pills("Show in heatmap", list(EVENTS), selection_mode="multi", default=list(EVENTS),
-                               format_func=lambda k: EVENTS[k][1], key="heat_ev", label_visibility="collapsed") or []
+            heat_ev = st.pills("Show in heatmap", list(EVENTS) + ["man"], selection_mode="multi", default=list(EVENTS) + ["man"],
+                               format_func=lambda k: "Manual events" if k == "man" else EVENTS[k][1],
+                               key="heat_ev", label_visibility="collapsed") or []
             e = events[events["commodity"].isin(rows_c) & events["event"].isin(heat_ev)
                        & events["date"].between(win0, win1)].copy()
             e["week"] = e["date"] - pd.to_timedelta(e["date"].dt.weekday, unit="D")
             weeks = pd.date_range(win0 - pd.Timedelta(days=win0.weekday()), win1, freq="7D")
             muted = "#8a94a8"
             z, txt, hov = [], [], []
+            mv = man_view[man_view["date"].between(win0, win1)].copy() if "man" in heat_ev else man_view.iloc[0:0]
+            hrows = (["man"] if not mv.empty else []) + list(rows_c)     # manual events: one shared row on top
+            if not mv.empty:
+                mv["week"] = mv["date"] - pd.to_timedelta(mv["date"].dt.weekday, unit="D")
+                head = f"<b><span style='color:{MAN_COLOR}'>Manual events</span></b>"
+                zr, tr, hr = [], [], []
+                for w in weeks:
+                    g = mv[mv["week"] == w].sort_values("date").drop_duplicates("id")   # a multi-day event counts once a week
+                    n = len(g)
+                    zr.append(n)
+                    tr.append(str(n) if n else "")
+                    sub = f"<span style='color:{muted}'>Week of {w:%a %d %b} – {w + pd.Timedelta(days=6):%a %d %b %Y}</span>"
+                    if n:
+                        lines = "<br>".join(
+                            f"<span style='color:{MAN_COLOR}'>★</span>  <b>{html.escape(r.title)}</b>  {r.group}  "
+                            f"<span style='color:{muted}'>{span_txt(r) or f'{r.date:%a %d %b}'}</span>"
+                            + (f"<br><span style='color:{muted}'>{html.escape(r.description[:80])}</span>" if r.description else "")
+                            for r in g.itertuples())
+                        hr.append(f"{head}<br>{sub}<br><br>{lines}<br><br><span style='color:{muted}'>{n} manual event{'s' * (n != 1)}</span>")
+                    else:
+                        hr.append(f"{head}<br>{sub}<br><br><span style='color:{muted}'>No manual events this week</span>")
+                z.append(zr)
+                txt.append(tr)
+                hov.append(hr)
             for c in rows_c:
                 zr, tr, hr = [], [], []
                 head = (f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
@@ -1206,17 +1231,18 @@ if tab_heat.open is not False:   # lazy: only the open tab runs
                 txt.append(tr)
                 hov.append(hr)
             fig3 = go.Figure(go.Heatmap(
-                z=z, x=weeks, y=list(range(len(rows_c))), text=txt, texttemplate="%{text}",
+                z=z, x=weeks, y=list(range(len(hrows))), text=txt, texttemplate="%{text}",
                 textfont=dict(size=10.5), customdata=hov, hovertemplate="%{customdata}<extra></extra>",
                 colorscale=[[0, "rgba(255,255,255,.55)"], [0.001, "#d6e2f3"], [0.5, "#7f9ccc"], [1, "#1e3a6e"]], zmin=0, xgap=3, ygap=3, showscale=False))
             add_today(fig3)
-            style_fig(fig3, 46 * len(rows_c) + 100)
+            style_fig(fig3, 46 * len(hrows) + 100)
             fig3.update_layout(margin=dict(l=8, r=12, t=40, b=34), hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.18)", align="left",
                                                font=dict(family="Inter, sans-serif", size=11.5, color="#1d1d1f")))
             fig3.update_xaxes(range=xrange, showgrid=False)
-            fig3.update_yaxes(tickmode="array", tickvals=list(range(len(rows_c))), range=[len(rows_c) - 0.5, -0.5],
-                              ticktext=[f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
-                                        f"<span style='color:#a3abbd'>{c}</span>" for c in rows_c], tickfont=dict(size=11))
+            fig3.update_yaxes(tickmode="array", tickvals=list(range(len(hrows))), range=[len(hrows) - 0.5, -0.5],
+                              ticktext=[f"<b><span style='color:{MAN_COLOR}'>★ Manual events</span></b>" if c == "man" else
+                                        f"<b><span style='color:{NAVY}'>{COMMODITY_LABELS[c]}</span></b>  "
+                                        f"<span style='color:#a3abbd'>{c}</span>" for c in hrows], tickfont=dict(size=11))
             month_header(fig3, *xrange)
             st.plotly_chart(fig3, width="stretch", config={"displayModeBar": False})
 
