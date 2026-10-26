@@ -25,7 +25,9 @@ DB_DIR = Path(__file__).resolve().parent.parent / "Database"
 # Manual events (Entry tab): one CSV in the repo, written through the GitHub API so every user sees them
 MAN_FILE = DB_DIR / "manual_events.csv"
 MAN_PATH = "Database/manual_events.csv"          # same file, path inside the GitHub repo
-MAN_COLS = ["id", "date", "group", "title", "description", "created", "end"]   # end blank = one-day event
+MAN_COLS = ["id", "date", "group", "title", "description", "created", "end", "repeat", "until"]   # end blank = one-day event
+REPEATS = {"": "Does not repeat", "weekly": "Weekly", "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly"}
+REPEAT_HORIZON = 730   # days ahead an open-ended series is drawn
 GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"]}
 MAN_COLOR = "#d9822b"
 
@@ -50,13 +52,37 @@ def load_manual() -> pd.DataFrame:
     df = _parse_manual(text)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["end"] = pd.to_datetime(df["end"], errors="coerce")
+    df["until"] = pd.to_datetime(df["until"], errors="coerce")
     return df.dropna(subset=["date"]).reset_index(drop=True)
 
 
-def by_day(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per day an event covers, with k (day number), n (length), start and stop. One-day events: k = n = 1."""
-    rows = []
+def _step(rep: str, k: int):
+    """Offset of the k-th repeat, always counted from the first date (31st stays the month end, never drifts)."""
+    return {"weekly": pd.DateOffset(weeks=k), "monthly": pd.DateOffset(months=k),
+            "quarterly": pd.DateOffset(months=3 * k), "yearly": pd.DateOffset(years=k)}[rep]
+
+
+def occurrences(df: pd.DataFrame) -> list:
+    """Each saved event once, a repeating one once per repeat up to its until date (or REPEAT_HORIZON days ahead)."""
+    out = []
     for r in df.to_dict("records"):
+        rep = r.get("repeat", "")
+        if rep not in REPEATS or not rep:
+            out.append(r)
+            continue
+        stop = r["until"] if pd.notna(r.get("until")) else pd.Timestamp.today().normalize() + pd.Timedelta(days=REPEAT_HORIZON)
+        k = 0
+        while (d := r["date"] + _step(rep, k)) <= stop:
+            out.append({**r, "date": d, "end": r["end"] + _step(rep, k) if pd.notna(r["end"]) else r["end"]})
+            k += 1
+    return out
+
+
+def by_day(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per day an event covers, with k (day number), n (length), start and stop. One-day events: k = n = 1.
+    Repeating events are expanded first, so every repeat shows up as its own dated event."""
+    rows = []
+    for r in occurrences(df):
         e = r["end"] if pd.notna(r["end"]) and r["end"] > r["date"] else r["date"]
         n = min((e - r["date"]).days + 1, 366)
         for k in range(n):
@@ -1222,7 +1248,8 @@ def _event_form(d: date, ev=None) -> None:
     """Add (ev None) or edit one manual event; an edit keeps the id and created date and may move the date."""
     if ev is None:
         st.markdown(f"**{d:%A %d %B %Y}**")
-        for r in manual[manual["date"].dt.date == d].itertuples():
+        on_day = by_day(manual)
+        for r in on_day[on_day["date"].dt.date == d].itertuples():
             st.caption(f"Already on this day: {r.title} ({r.group})")
     else:
         d = st.date_input("Date", value=d, format="DD/MM/YYYY")
@@ -1235,9 +1262,19 @@ def _event_form(d: date, ev=None) -> None:
     multi = st.toggle("Lasts more than one day", value=had_end)
     end = st.date_input("Ends on", value=ev.end.date() if had_end else d + pd.Timedelta(days=1), min_value=d,
                         format="DD/MM/YYYY") if multi else None
+    reps = list(REPEATS)
+    rep = st.selectbox("Repeats", reps, format_func=lambda x: REPEATS[x] if not x else f"{REPEATS[x]} ({_rep_hint(x, d)})",
+                       index=reps.index(ev.repeat) if ev is not None and ev.repeat in reps else 0)
+    until = None
+    if rep:
+        had_until = ev is not None and pd.notna(ev.until)
+        if st.toggle("Stop repeating on a date", value=had_until):
+            until = st.date_input("Last repeat on or before", min_value=d, format="DD/MM/YYYY",
+                                  value=ev.until.date() if had_until else (pd.Timestamp(d) + pd.DateOffset(years=1)).date())
     if st.button("Save", type="primary", disabled=not title.strip()):
         fields = {"date": f"{d:%Y-%m-%d}", "group": grp, "title": title.strip(), "description": desc.strip(),
-                  "end": f"{end:%Y-%m-%d}" if end and end > d else ""}
+                  "end": f"{end:%Y-%m-%d}" if end and end > d else "",
+                  "repeat": rep, "until": f"{until:%Y-%m-%d}" if rep and until else ""}
         if ev is None:
             new = {"id": uuid.uuid4().hex[:8], **fields, "created": f"{date.today():%Y-%m-%d}"}
             change, msg = (lambda df: pd.concat([df, pd.DataFrame([new])], ignore_index=True)), f"Calendar entry: {new['title']} ({grp}, {d:%d %b %Y})"
@@ -1253,6 +1290,11 @@ def _event_form(d: date, ev=None) -> None:
             st.error(str(ex))
             return
         st.rerun()
+
+
+def _rep_hint(rep: str, d: date) -> str:
+    return {"weekly": f"every {d:%A}", "monthly": f"every month on the {d.day}",
+            "quarterly": f"every 3 months on the {d.day}", "yearly": f"every year on {d:%d %b}"}[rep]
 
 
 @st.dialog("Add calendar event")
@@ -1315,6 +1357,9 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
             for r in manual.sort_values("date").itertuples():
                 c = st.columns([1.3, 0.9, 2, 3.4, 0.7, 0.7])
                 rng = f" &ndash; {r.end:%d %b}" if pd.notna(r.end) else ""
+                if r.repeat in REPEATS and r.repeat:
+                    rng += (f'<br><span style="color:#7a86a8">&#8635; {_rep_hint(r.repeat, r.date.date())}'
+                            + (f" until {r.until:%d %b %Y}" if pd.notna(r.until) else "") + "</span>")
                 c[0].markdown(f'<div class="ent-row"><b>{r.date:%a %d %b %Y}</b>{rng}</div>', unsafe_allow_html=True)
                 c[1].markdown(f'<div class="ent-row" style="color:{MAN_COLOR}">★ {r.group}</div>', unsafe_allow_html=True)
                 c[2].markdown(f'<div class="ent-row"><b>{html.escape(r.title)}</b></div>', unsafe_allow_html=True)
