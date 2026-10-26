@@ -31,7 +31,7 @@ REPEAT_HORIZON = 730   # days ahead an open-ended series is drawn
 GROUPS = {"Coffee": ["KC", "RC"], "Cocoa": ["CC", "LCC"], "Sugar": ["SB", "LSU"], "Cotton": ["CT"], "General": []}   # General: not tied to one market (FOMC, CPI, conferences)
 MAN_COLOR = "#d9822b"
 TAG_COL = {"Coffee": "#8b5a2b", "Cocoa": "#c0392b", "Sugar": "#2a8c8c", "Cotton": "#5b74a8", "General": "#8a8f9c"}   # star colour per tag
-TAG_CSS = "".join(f".st-key-ent_tags button:nth-of-type({i}) p {{ color: {c} !important; font-weight: 600; }}"
+TAG_CSS = "".join(f'[class*="st-key-tags_"] button:nth-of-type({i}) p {{ color: {c} !important; font-weight: 600; }}'
                   for i, c in enumerate(TAG_COL.values(), 1))
 
 
@@ -311,7 +311,7 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 [class*="st-key-entry_grid"] [class*="st-key-entev_"] button p { color: #1e3a6e; font-weight: 700; }
 [class*="st-key-entry_grid"] button[kind="primary"] { background: #f3f7fd; border: 1.5px solid #2b4a8a; box-shadow: 0 0 0 3px rgba(43,74,138,.12); }
 [class*="st-key-entry_grid"] button[kind="primary"] p { color: #1e3a8a !important; font-weight: 700; }
-.st-key-ent_tags [data-testid="stButtonGroup"] { display: flex; justify-content: center; }
+[class*="st-key-tags_"] [data-testid="stButtonGroup"] { display: flex; justify-content: center; }
 .st-key-ent_tl_box { padding: 8px 12px 4px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9));
   border: 1px solid rgba(43,74,138,.14); box-shadow: 0 8px 26px rgba(43,74,138,.08), inset 0 1px 0 rgba(255,255,255,.9); }
 .ent-row { font-size: 12.5px; color: #1a1a2e; padding-top: 7px; }
@@ -860,6 +860,14 @@ def has_data() -> bool:
 
 
 
+def tag_legend(key: str) -> list:
+    """Coloured ★ tag pills = legend and filter for an events timeline. None picked = all tags."""
+    st.markdown(f"<style>{TAG_CSS}</style>", unsafe_allow_html=True)
+    with st.container(key=f"tags_{key}"):
+        return st.pills("Tags", list(TAG_COL), selection_mode="multi", default=[], key=f"tagsel_{key}",
+                        format_func=lambda g: f"★ {g}", label_visibility="collapsed") or list(TAG_COL)
+
+
 def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
     """Events only: every event on its own row with its name on it; multi-day events as bars, one-day events as stars."""
     ev = win.drop_duplicates("id").sort_values(["start", "title"]).reset_index(drop=True)
@@ -1076,7 +1084,12 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             if not focus:
                 month_header(fig, *xrange, days=horizon <= 3)
             if focus:
-                events_focus(man_win)
+                tl_tags = tag_legend("tl")
+                tl_win = man_win[man_win["group"].isin(tl_tags)]
+                if tl_win.empty:
+                    st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
+                else:
+                    events_focus(tl_win)
             else:
                 k = st.session_state.get("tl_k", 0)                # a fresh key after each click clears plotly's selection dimming
                 sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
@@ -1340,11 +1353,6 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
         st.markdown('<div class="page-title" style="margin:6px 0 2px;text-align:center">Add an event</div>', unsafe_allow_html=True)
         if not gh.enabled():
             st.caption("Saving to this machine only. Add github_token to Streamlit Secrets to share entries.")
-        st.markdown(f"<style>{TAG_CSS}</style>", unsafe_allow_html=True)
-        with st.container(key="ent_tags"):                         # legend = filter: click a tag to see only its events
-            tags = st.pills("Tags", list(TAG_COL), selection_mode="multi", default=[], key="ent_tag_sel",
-                            format_func=lambda g: f"★ {g}", label_visibility="collapsed") or list(TAG_COL)
-        ent_man = manual[manual["group"].isin(tags)]
         em = st.session_state.setdefault("entry_month", pd.Timestamp(today.year, today.month, 1))
         with st.container(key="entry_box"):                       # this month and the next, side by side
             nav = st.columns([1, 5, 1])
@@ -1354,7 +1362,7 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
             if nav[2].button("Next ›", key="ent_next", width="stretch"):
                 st.session_state["entry_month"] = em + pd.DateOffset(months=1)
                 st.rerun()
-            days = by_day(ent_man)
+            days = by_day(manual)
             counts = days.groupby(days["date"].dt.date).size().to_dict()
             for j, (col, m) in enumerate(zip(st.columns(2, gap="large"), (em, em + pd.DateOffset(months=1)))):
                 with col, st.container(key=f"entry_grid_{j}"):
@@ -1377,12 +1385,19 @@ if tab_ent.open is not False:   # lazy: only the open tab runs
                                               type="primary" if d == today else "secondary"):
                                 entry_dialog(d)
 
-        ent_win = by_day(ent_man)
+        ent_man = manual
+        ent_win = by_day(manual)
         ent_win = ent_win[ent_win["date"].between(xrange[0], xrange[1])]
         if not ent_win.empty:                                     # the same Focus view as the Market Timeline
             st.markdown('<div class="sec" style="text-align:center">Events timeline</div>', unsafe_allow_html=True)
+            tags = tag_legend("ent")                              # filters the timeline and the saved list below
+            ent_man = manual[manual["group"].isin(tags)]
+            ent_win = ent_win[ent_win["group"].isin(tags)]
             with st.container(key="ent_tl_box"):
-                events_focus(ent_win, key="ent_focus_chart", icy=True)
+                if ent_win.empty:
+                    st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
+                else:
+                    events_focus(ent_win, key="ent_focus_chart", icy=True)
         st.markdown('<div class="sec" style="text-align:center">Saved events</div>', unsafe_allow_html=True)
         if ent_man.empty:
             st.markdown('<div class="card-desc">No manual events yet.</div>', unsafe_allow_html=True)
