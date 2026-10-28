@@ -869,25 +869,40 @@ def tag_legend(key: str) -> list:
 
 
 def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
-    """Events only, grouped by tag: Coffee / Cocoa / Sugar / Cotton / General at the far left, then each event's name
-    on its own lane with a light guide line, so every repeat of a repeating event reads off its row."""
+    """Events only, in two sections: Recurring on top, One-time below. Inside each, grouped by tag (Coffee / Cocoa /
+    Sugar / Cotton / General) at the far left, then each event's name on its own lane with a light guide line."""
     occ = win[(win["k"] == 1) | (win["date"] == win["date"].min())].drop_duplicates(["id", "start"])
     order = {g: i for i, g in enumerate(TAG_COL)}
     first = occ.groupby("id")["start"].min()
-    series = (occ.drop_duplicates("id").assign(o=lambda d: d["group"].map(order).fillna(len(order)), f=lambda d: d["id"].map(first))
-              .sort_values(["o", "f", "title"]))
-    GAP = 0.7
-    lane, blocks, ticks, y = {}, [], [], 0.0
-    for gi, (g, s) in enumerate(series.groupby("group", sort=False)):
-        y += GAP if gi else 0
-        a = y
-        for i, t in zip(s["id"], s["title"]):
-            lane[i] = y
-            ticks.append(html.escape(t if len(t) <= 30 else t[:29] + "…"))
-            y += 1
-        blocks.append((g, a, y - 1))
+    series = (occ.drop_duplicates("id")
+              .assign(rec=lambda d: d["repeat"].isin([k for k in REPEATS if k]),
+                      o=lambda d: d["group"].map(order).fillna(len(order)), f=lambda d: d["id"].map(first))
+              .sort_values(["rec", "o", "f", "title"], ascending=[False, True, True, True]))
+    GAP, HEAD = 0.7, 1.1
+    lane, blocks, heads, ticks, tvals, y = {}, [], [], [], [], 0.0
+    for si, (rec, sec) in enumerate(series.groupby("rec", sort=False)):
+        y += 0.5 if si else 0
+        heads.append((y, "Recurring" if rec else "One-time", sec["id"].nunique()))
+        y += HEAD
+        for gi, (g, s) in enumerate(sec.groupby("group", sort=False)):
+            y += GAP if gi else 0
+            a = y
+            for i, t, rp in zip(s["id"], s["title"], s["repeat"]):
+                lane[i] = y
+                t = html.escape(t if len(t) <= 28 else t[:27] + "…")
+                ticks.append(t + (f"  <span style='color:#a3abbd;font-size:10px'>↻ {REPEATS[rp].lower()}</span>" if rec else ""))
+                tvals.append(y)
+                y += 1
+            blocks.append((g, a, y - 1))
     y_end = y - 1
     fig = go.Figure()
+    for hy, label, n in heads:   # section header: soft navy band across the chart, label in the left gutter
+        fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=hy - 0.38, y1=hy + 0.38, layer="below",
+                      fillcolor="rgba(10,36,99,0.045)", line_width=0)
+        fig.add_annotation(xref="paper", x=0, xanchor="left", xshift=-290, y=hy, yanchor="middle", showarrow=False,
+                           text=f"<b><span style='color:{NAVY}'>{label.upper()}</span></b>"
+                                f"   <span style='color:#a3abbd'>{n} event{'s' * (n != 1)}</span>",
+                           font=dict(size=10.5, family="Inter, sans-serif"))
     for g, a, b in blocks:
         col = TAG_COL.get(g, MAN_COLOR)
         fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-218, x1=-218,
@@ -919,7 +934,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
     fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
                      tickfont=dict(size=10.5, color="#8a94a8"))
-    fig.update_yaxes(range=[y_end + 0.6, -0.6], tickmode="array", tickvals=list(lane.values()), ticktext=ticks, ticks="",
+    fig.update_yaxes(range=[y_end + 0.6, -0.6], tickmode="array", tickvals=tvals, ticktext=ticks, ticks="",
                      tickfont=dict(size=11.5, color="#1e293b" if icy else NAVY, family="Inter, sans-serif"),
                      showgrid=False, zeroline=False)
     month_header(fig, *xrange, days=horizon <= 3)
