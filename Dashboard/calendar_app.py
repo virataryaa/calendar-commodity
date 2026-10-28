@@ -869,34 +869,37 @@ def tag_legend(key: str) -> list:
 
 
 def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
-    """Events only, grouped by tag: Coffee / Cocoa / Sugar / Cotton / General down the left, one lane per event
-    inside its group. A repeating event keeps every repeat on its lane; its name is written at the first one."""
+    """Events only, grouped by tag: Coffee / Cocoa / Sugar / Cotton / General at the far left, then each event's name
+    on its own lane with a light guide line, so every repeat of a repeating event reads off its row."""
     occ = win[(win["k"] == 1) | (win["date"] == win["date"].min())].drop_duplicates(["id", "start"])
     order = {g: i for i, g in enumerate(TAG_COL)}
     first = occ.groupby("id")["start"].min()
     series = (occ.drop_duplicates("id").assign(o=lambda d: d["group"].map(order).fillna(len(order)), f=lambda d: d["id"].map(first))
               .sort_values(["o", "f", "title"]))
     GAP = 0.7
-    lane, blocks, y = {}, [], 0.0
+    lane, blocks, ticks, y = {}, [], [], 0.0
     for gi, (g, s) in enumerate(series.groupby("group", sort=False)):
         y += GAP if gi else 0
         a = y
-        for i in s["id"]:
+        for i, t in zip(s["id"], s["title"]):
             lane[i] = y
+            ticks.append(html.escape(t if len(t) <= 30 else t[:29] + "…"))
             y += 1
         blocks.append((g, a, y - 1))
     y_end = y - 1
     fig = go.Figure()
     for g, a, b in blocks:
         col = TAG_COL.get(g, MAN_COLOR)
-        fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-14, x1=-14,
+        fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-218, x1=-218,
                       y0=a - 0.32, y1=b + 0.32, line=dict(color=col, width=3))
-        fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-24, y=(a + b) / 2, yanchor="middle", showarrow=False,
+        fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-226, y=(a + b) / 2, yanchor="middle", showarrow=False,
                            text=f"<b><span style='color:{col}'>{g}</span></b>", font=dict(size=12, family="Inter, sans-serif"))
+        for yy in [v for v in lane.values() if a <= v <= b]:   # light lane guide in the tag colour
+            fig.add_shape(type="line", x0=xrange[0], x1=xrange[1], y0=yy, y1=yy, layer="below",
+                          line=dict(color=col, width=1, dash="dot"), opacity=.28)
     for r in occ.sort_values("start").itertuples():
         col = TAG_COL.get(r.group, MAN_COLOR)
         name, sp = html.escape(r.title), span_txt(r)
-        lead = r.start == first[r.id]                      # name only on the first repeat in view
         hov = (f"<b><span style='color:{NAVY}'>{name}</span></b>   <span style='color:#a3abbd'>{r.group}</span><br>"
                + (sp or f"{r.start:%a %d %b %Y}")
                + (f"   <span style='color:#a3abbd'>· {REPEATS[r.repeat].lower()}</span>" if r.repeat in REPEATS and r.repeat else "")
@@ -905,20 +908,20 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
             b0, b1 = max(r.start, xrange[0]), r.stop + pd.Timedelta(days=1)
             fig.add_trace(go.Bar(orientation="h", base=[b0], y=[lane[r.id]], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
                                  marker=dict(color=col, opacity=.55 if icy else .8, cornerradius=6, line_width=0), hovertemplate=hov,
-                                 text=[f"  {name}  ·  {sp}" if lead else ""], textposition="inside", insidetextanchor="start",
+                                 text=[f"  {sp}"], textposition="inside", insidetextanchor="start",
                                  textfont=dict(color="#1e293b" if icy else "#ffffff", size=11.5, family="Inter, sans-serif")))
         else:
-            fig.add_trace(go.Scatter(x=[r.start], y=[lane[r.id]], mode="markers+text", hovertemplate=hov,
-                                     marker=dict(symbol="star", size=14, color=col, line=dict(color="#ffffff", width=1.5)),
-                                     text=[f"  {name}" if lead else ""], textposition="middle right",
-                                     textfont=dict(color="#1e293b" if icy else NAVY, size=12, family="Inter, sans-serif")))
-    fig.add_vline(x=pd.Timestamp(today), line=dict(color="#4f6fb0" if icy else NAVY, width=1.2 if icy else 1.5))
-    fig.update_layout(height=90 + int(34 * (y_end + 1)), showlegend=False, barmode="overlay", margin=dict(l=100, r=10, t=40, b=10),
+            fig.add_trace(go.Scatter(x=[r.start], y=[lane[r.id]], mode="markers", hovertemplate=hov,
+                                     marker=dict(symbol="star", size=14, color=col, line=dict(color="#ffffff", width=1.5))))
+    fig.add_vline(x=pd.Timestamp(today), layer="below", line=dict(color="rgba(10,36,99,0.45)", width=1.2))
+    fig.update_layout(height=90 + int(34 * (y_end + 1)), showlegend=False, barmode="overlay", margin=dict(l=300, r=10, t=40, b=10),
                       plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
     fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
                      tickfont=dict(size=10.5, color="#8a94a8"))
-    fig.update_yaxes(range=[y_end + 0.6, -0.6], showticklabels=False, showgrid=False, zeroline=False)
+    fig.update_yaxes(range=[y_end + 0.6, -0.6], tickmode="array", tickvals=list(lane.values()), ticktext=ticks, ticks="",
+                     tickfont=dict(size=11.5, color="#1e293b" if icy else NAVY, family="Inter, sans-serif"),
+                     showgrid=False, zeroline=False)
     month_header(fig, *xrange, days=horizon <= 3)
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=key)
 
