@@ -870,7 +870,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
     occ["o"] = occ["group"].map(order).fillna(len(order))
     t0 = pd.Timestamp(today)
     ink = "#1e293b" if icy else NAVY
-    day_px = 1150 / max((xrange[1] - xrange[0]).days, 1)            # rough plot width, to size labels in days
+    day_px = 950 / max((xrange[1] - xrange[0]).days, 1)             # plot width kept on the low side so labels are sized generously
     GAP, HEAD = 0.7, 1.1
     ypos, blocks, heads, names, y = {}, [], [], [], 0.0             # ypos: (id, start) -> lane
     for rec in [True, False]:
@@ -898,8 +898,9 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                 ends = []                                           # right edge (date) of the last label on each lane
                 for r in s.itertuples():
                     lab0 = r.stop + pd.Timedelta(days=1) if r.n > 1 else r.start
-                    end = lab0 + pd.Timedelta(days=(7.5 * len(r.title) + 34) / day_px)
-                    j = next((j for j, e in enumerate(ends) if e < r.start), None)
+                    end = lab0 + pd.Timedelta(days=(8.5 * len(r.title) + 40) / day_px)
+                    pad = pd.Timedelta(days=16 / day_px)            # star half-width + breathing room before the next mark
+                    j = next((j for j, e in enumerate(ends) if e + pad < r.start), None)
                     if j is None:
                         ends.append(end)
                         j = len(ends) - 1
