@@ -880,8 +880,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
         y += 0.5 if heads else 0
         heads.append((y, "Recurring" if rec else "One-time", sec["id"].nunique()))
         y += HEAD
-        grouped = sec.sort_values(["o", "start", "title"]).groupby("group", sort=False) if rec else [("", sec.sort_values("start"))]
-        for gi, (g, s) in enumerate(grouped):
+        for gi, (g, s) in enumerate(sec.sort_values(["o", "start", "title"]).groupby("group", sort=False)):
             y += GAP if gi else 0
             a = y
             if rec:
@@ -908,7 +907,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                         ends[j] = end
                     ypos[(r.id, r.start)] = y + j
                 y += len(ends)
-            blocks.append((g, a, y - 1))
+            blocks.append((g, a, y - 1, rec))
     y_end = y - 1
     fig = go.Figure()
     for hy, label, n in heads:   # section header: soft navy band across the chart, label in the left gutter
@@ -918,15 +917,13 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                            text=f"<b><span style='color:{NAVY}'>{label.upper()}</span></b>"
                                 f"   <span style='color:#a3abbd'>{n} event{'s' * (n != 1)}</span>",
                            font=dict(size=10.5, family="Inter, sans-serif"))
-    for g, a, b in blocks:
-        if not g:   # one-time lanes: no tag rail, no guides (labels read cleaner on a plain band)
-            continue
+    for g, a, b, rec in blocks:
         col = TAG_COL.get(g, MAN_COLOR)
         fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-168, x1=-168,
                       y0=a - 0.32, y1=b + 0.32, line=dict(color=col, width=3))
         fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-176, y=(a + b) / 2, yanchor="middle", showarrow=False,
                            text=f"<b><span style='color:{col}'>{g}</span></b>", font=dict(size=12, family="Inter, sans-serif"))
-        for yy in sorted({v for v in ypos.values() if a <= v <= b}):   # light lane guide in the tag colour
+        for yy in sorted({v for v in ypos.values() if a <= v <= b}) if rec else []:   # lane guide (recurring only: one-time labels read cleaner on a plain band)
             fig.add_shape(type="line", x0=xrange[0], x1=xrange[1], y0=yy, y1=yy, layer="below",
                           line=dict(color=col, width=1, dash="dot"), opacity=.28)
     for yy, name, sub in names:   # recurring names, left-aligned beside the rail like a table column
