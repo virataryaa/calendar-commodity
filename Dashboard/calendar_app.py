@@ -855,7 +855,7 @@ def tag_legend(key: str) -> list:
                         format_func=lambda g: f"★ {g}", label_visibility="collapsed") or list(TAG_COL)
 
 
-def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False) -> None:
+def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = False, merged: bool = False) -> None:
     """Events only, in two sections. Recurring: one lane per event, its name + cadence + next date in the left column.
     One-time: one shared lane per tag, the name written beside each mark; a new lane opens only when labels would collide.
     Both grouped by tag (Coffee / Cocoa / Sugar / Cotton / General) on a coloured rail at the far left."""
@@ -943,13 +943,17 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                                      text=None if r.rec else [f"  {name}"], textposition="middle right",
                                      textfont=dict(color=ink, size=11.5, family="Inter, sans-serif")))
     fig.add_vline(x=t0, layer="below", line=dict(color="rgba(10,36,99,0.45)", width=1.2))
-    fig.update_layout(height=90 + int(34 * (y_end + 1)), showlegend=False, barmode="overlay", margin=dict(l=300, r=10, t=40, b=10),
-                      plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    fig.update_layout(height=(30 if merged else 90) + int(34 * (y_end + 1)), showlegend=False, barmode="overlay",
+                      margin=dict(l=300, r=12, t=8 if merged else 40, b=10),
+                      plot_bgcolor="rgba(217,130,43,0.035)" if merged else "rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
     fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
                      tickfont=dict(size=10.5, color="#8a94a8"))
     fig.update_yaxes(range=[y_end + 0.6, -0.6], showticklabels=False, showgrid=False, zeroline=False)
-    month_header(fig, *xrange, days=horizon <= 3)
+    if merged:   # sits under the market chart, which already carries the dates
+        fig.update_xaxes(showticklabels=False)
+    else:
+        month_header(fig, *xrange, days=horizon <= 3)
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=key)
 
 
@@ -961,7 +965,6 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             + "".join(f'<span>{glyph(k)}{EVENTS[k][1]}</span>' for k in ["FND", "LTD", "LND", "OPT"])
             + '<span><i style="background:rgba(109,79,194,0.22);width:22px;border-radius:4px"></i>Index roll ±5 bd</span>'
             + f'<span>{glyph("IDX")}Index roll day</span>'
-            + (f'<span><span class="gl" style="color:{MAN_COLOR}">★</span>Manual event</span>' if show_man else "")
             + f'<span><i style="background:#0a2463;border-radius:999px"></i>Today ({today:%a %d %b %Y})</span></div>',
             unsafe_allow_html=True)
         if has_data():
@@ -972,11 +975,6 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             man_win = man_view[man_view["date"].between(xrange[0], xrange[1])]
             labels, ticks, tvals, groups = [], [], [], []
             y = 0.0
-            if not man_win.empty:   # one shared Events row on top for all manual entries
-                labels.append("man#all")
-                ticks.append(f"<b><span style='color:{MAN_COLOR}'>Events</span></b>")
-                tvals.append(y)
-                y += 1 + GAP
             for gi, (c, g) in enumerate(fut.groupby("commodity", sort=False)):
                 y += GAP if gi else 0
                 first = y
@@ -1069,42 +1067,6 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                    for k, c, t, u, d, fn in zip(o["option"], o["commodity"], o["type"],
                                                                 o["underlying_future"], o["LTD"], o["underlying_FND"])]))
 
-            # manual events: orange stars on their own row, light orange band like the options row
-            if "man#all" in pos:
-                fig.add_trace(go.Bar(
-                    orientation="h", base=[span0], y=[pos["man#all"]],
-                    x=[(span1 - span0).total_seconds() * 1000], width=0.46, hoverinfo="skip",
-                    marker=dict(color="rgba(217,130,43,0.08)", cornerradius=6, line_width=0)))
-                # one star per day: several events on the same day share it ("+N"), the hover lists them all
-                for r in man_win[man_win["n"] > 1].drop_duplicates("id").itertuples():   # multi-day: a bar start -> end
-                    b0, b1 = max(r.start, span0), r.stop + pd.Timedelta(days=1)
-                    fig.add_trace(go.Bar(
-                        orientation="h", base=[b0], y=[pos["man#all"]], x=[(b1 - b0).total_seconds() * 1000], width=0.30,
-                        marker=dict(color="rgba(217,130,43,0.42)", cornerradius=5, line_width=0),
-                        hovertemplate=(f"<span style='color:{MAN_COLOR}'>★</span>  <b><span style='color:{NAVY}'>{html.escape(r.title)}</span></b>"
-                                       f"   <span style='color:#a3abbd'>{r.group}</span><br><br>{span_txt(r)}<extra></extra>")))
-                first = man_win[(man_win["k"] == 1) | (man_win["date"] == man_win["date"].min())]
-                mx, my, mt, mh = [], [], [], []
-                for d, g in first.sort_values(["date", "group", "title"]).groupby("date"):
-                    first_t = html.escape(g["title"].iloc[0])
-                    first_t = first_t if len(first_t) <= 18 else first_t[:17] + "…"
-                    mx.append(d)
-                    my.append(pos["man#all"])
-                    mt.append(first_t + (f" +{len(g) - 1}" if len(g) > 1 else ""))
-                    items = "<br><br>".join(
-                        f"<span style='color:{MAN_COLOR}'>★</span>  <b><span style='color:{NAVY}'>{html.escape(r.title)}</span></b>"
-                        f"   <span style='color:#a3abbd'>{r.group}</span>"
-                        + (f"<br><span style='color:{MAN_COLOR}'>{span_txt(r)}</span>" if r.n > 1 else "")
-                        + (f"<br><span style='color:#5a6688'>{html.escape(r.description)}</span>" if r.description else "")
-                        for r in g.itertuples())
-                    n = len(g)
-                    mh.append(f"<span style='color:{GOLD}'>{fmt(d)}</span>   "
-                              f"<span style='color:#a3abbd'>{n} manual event{'s' * (n != 1)}</span><br><br>"
-                              f"{items}<br><br><span style='color:#8a94a8'>{rel_day(d).capitalize()}</span><extra></extra>")
-                fig.add_trace(go.Scatter(
-                    x=mx, y=my, mode="markers", hovertemplate=mh,   # names only on hover
-                    marker=dict(symbol="star", size=12, color=MAN_COLOR, line=dict(color="#ffffff", width=1.5))))
-
             # FND at the bar start, LND at its end, LTD as a pin just above (they are often one day apart)
             for k, size, dy in [("FND", 10, 0), ("LND", 9, 0), ("LTD", 10, -0.34)]:
                 if k not in (evsel or []):
@@ -1126,7 +1088,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
             style_fig(fig, int(30 * (y_end + 1)) + 74)
-            fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=160, r=12, t=40, b=34), hovermode="closest",
+            fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=300, r=12, t=40, b=34), hovermode="closest",
                               hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.16)", align="left",
                                               font=dict(family="Inter, sans-serif", size=12, color="#1d1d1f")))
             fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
@@ -1141,12 +1103,16 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                 st.session_state["tl_k"] = k + 1
                 st.rerun()
             if not man_win.empty:                                   # every event in the window, expanded, under the markets
-                tl_tags = tag_legend("tl")
+                tl_tags = st.session_state.get("tagsel_tl") or list(TAG_COL)   # the tag pills sit at the very end
                 tl_win = man_win[man_win["group"].isin(tl_tags)]
+                st.markdown(f'<div style="margin:-14px 12px 0 300px;border-top:1.5px solid {MAN_COLOR};opacity:.55"></div>'
+                            f'<div style="margin:2px 0 -6px 12px;font:600 10.5px Inter,sans-serif;letter-spacing:.08em;color:{MAN_COLOR}">EVENTS</div>',
+                            unsafe_allow_html=True)
                 if tl_win.empty:
                     st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
                 else:
-                    events_focus(tl_win)
+                    events_focus(tl_win, merged=True)
+                tag_legend("tl")
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
     with tab_roll:
