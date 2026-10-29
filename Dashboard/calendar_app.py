@@ -355,13 +355,6 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
 .up td, .ht td { border-color: rgba(43,74,138,.07) !important; }
 .up tr:hover td { background: rgba(219,231,250,.35); }
-.st-key-tl_focus_wrap { position: relative; height: 0; z-index: 20; overflow: visible; }
-.st-key-tl_focus_wrap > div { position: absolute; right: 4px; top: calc(1rem + 4px); width: auto !important; }
-.st-key-tl_focus_btn button { border-radius: 999px !important; min-height: 36px !important; background: rgba(255,255,255,.85) !important;
-  border: 1px solid rgba(122,15,31,.42) !important; box-shadow: 0 0 0 3px rgba(122,15,31,.07), 0 0 16px rgba(122,15,31,.26) !important;
-  transition: box-shadow .2s, border-color .2s; }
-.st-key-tl_focus_btn button:hover { border-color: rgba(122,15,31,.65) !important; box-shadow: 0 0 0 4px rgba(122,15,31,.10), 0 0 22px rgba(122,15,31,.38) !important; }
-.st-key-tl_focus_btn button p { color: #7a0f1f !important; font-weight: 600; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important; font-size: 12.5px !important; }
 /* Entry: each month its own glacier card, the outer box just holds them */
 .st-key-entry_box { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
 [class*="st-key-entry_grid_"] { padding: 12px 14px 12px; border-radius: 16px; gap: .4rem;
@@ -583,8 +576,6 @@ with st.sidebar:
     st.markdown('<div class="sb-sec">Show</div>', unsafe_allow_html=True)
     show_hol = st.toggle("Exchange holidays", value=True)
     show_man = st.toggle("Manual events", value=True)
-    if st.session_state.pop("_tl_focus_req", False):              # a click on a star / event bar asks for focus
-        st.session_state["tl_focus"] = True
 
     man_groups = []
     if show_man:
@@ -724,10 +715,6 @@ def fmt(d) -> str:
 manual = load_manual()
 man_view = by_day(manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0])
 
-if st.session_state.get("main_tab") == "Market Timeline" and not man_view.empty:   # glowing switch, far right of the tab bar
-    with st.container(key="tl_focus_wrap"):
-        _f = bool(st.session_state.get("tl_focus"))
-        st.button("All markets" if _f else "Focus events", key="tl_focus_btn", on_click=lambda f=_f: st.session_state.update(tl_focus=not f))
 tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
     ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
     key="main_tab", on_change="rerun")
@@ -1146,26 +1133,20 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                              gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
-            focus = bool(st.session_state.get("tl_focus")) and not man_win.empty
-            if not focus:
-                month_header(fig, *xrange, days=horizon <= 3)
-            if focus:
+            month_header(fig, *xrange, days=horizon <= 3)
+            k = st.session_state.get("tl_k", 0)                    # a fresh key after each click clears plotly's selection dimming
+            sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
+                                  on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
+            if sel and sel.selection and sel.selection.points:
+                st.session_state["tl_k"] = k + 1
+                st.rerun()
+            if not man_win.empty:                                   # every event in the window, expanded, under the markets
                 tl_tags = tag_legend("tl")
                 tl_win = man_win[man_win["group"].isin(tl_tags)]
                 if tl_win.empty:
                     st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
                 else:
                     events_focus(tl_win)
-            else:
-                k = st.session_state.get("tl_k", 0)                # a fresh key after each click clears plotly's selection dimming
-                sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
-                                      on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
-                pts = (sel.selection.points if sel and sel.selection else []) or []
-                if pts:
-                    st.session_state["tl_k"] = k + 1
-                    if "man#all" in pos and any(abs(float(p.get("y", -99)) - pos["man#all"]) < 0.4 for p in pts):
-                        st.session_state["_tl_focus_req"] = True     # clicked a star or an event bar -> sidebar switch turns on
-                    st.rerun()
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
     with tab_roll:
