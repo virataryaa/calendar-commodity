@@ -351,6 +351,10 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
   border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 0 8px; overflow: visible !important; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
 [data-testid="stMain"] [data-testid="stPlotlyChart"] * { overflow: visible; }   /* no inner scroll: charts show in full */
 .st-key-ent_tl_box [data-testid="stPlotlyChart"] { background: none; border: 0; box-shadow: none; padding: 0; }
+.st-key-tl_box { background: #ffffff; border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 0 8px 10px; gap: 0;
+  box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
+.st-key-tl_box [data-testid="stPlotlyChart"] { background: none; border: 0; box-shadow: none; padding: 0; }
+.st-key-tl_box [class*="st-key-tags_"] { width: 100%; margin-top: 6px; }
 .up, .ht { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9)) !important;
   border: 1px solid rgba(43,74,138,.12) !important; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
 .up th, .ht th { background: rgba(43,74,138,.07) !important; color: #1e3a6e !important; }
@@ -876,7 +880,8 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
         y += 0.5 if heads else 0
         heads.append((y, "Recurring" if rec else "One-time", sec["id"].nunique()))
         y += HEAD
-        for gi, (g, s) in enumerate(sec.sort_values(["o", "start", "title"]).groupby("group", sort=False)):
+        grouped = sec.sort_values(["o", "start", "title"]).groupby("group", sort=False) if rec else [("", sec.sort_values("start"))]
+        for gi, (g, s) in enumerate(grouped):
             y += GAP if gi else 0
             a = y
             if rec:
@@ -886,14 +891,14 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                     nxt = e.loc[e["start"] >= t0, "start"].min()
                     when = f"next {nxt:%d %b}" if pd.notna(nxt) else f"last {e['start'].max():%d %b}"
                     t = e["title"].iloc[0]
-                    names.append((y, html.escape(t if len(t) <= 30 else t[:29] + "…"),
+                    names.append((y, html.escape(t if len(t) <= 24 else t[:23] + "…"),
                                   f"↻ {REPEATS[e['repeat'].iloc[0]].lower()} · {when}"))
                     y += 1
             else:
                 ends = []                                           # right edge (date) of the last label on each lane
                 for r in s.itertuples():
-                    lab_end = r.start + pd.Timedelta(days=(7 * len(r.title) + 34) / day_px)
-                    end = max(lab_end, r.stop + pd.Timedelta(days=1)) if r.n > 1 else lab_end
+                    lab0 = r.stop + pd.Timedelta(days=1) if r.n > 1 else r.start
+                    end = lab0 + pd.Timedelta(days=(7.5 * len(r.title) + 34) / day_px)
                     j = next((j for j, e in enumerate(ends) if e < r.start), None)
                     if j is None:
                         ends.append(end)
@@ -908,21 +913,23 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
     for hy, label, n in heads:   # section header: soft navy band across the chart, label in the left gutter
         fig.add_shape(type="rect", xref="paper", x0=0, x1=1, y0=hy - 0.38, y1=hy + 0.38, layer="below",
                       fillcolor="rgba(10,36,99,0.045)", line_width=0)
-        fig.add_annotation(xref="paper", x=0, xanchor="left", xshift=-290, y=hy, yanchor="middle", showarrow=False,
+        fig.add_annotation(xref="paper", x=0, xanchor="left", xshift=-222, y=hy, yanchor="middle", showarrow=False,
                            text=f"<b><span style='color:{NAVY}'>{label.upper()}</span></b>"
                                 f"   <span style='color:#a3abbd'>{n} event{'s' * (n != 1)}</span>",
                            font=dict(size=10.5, family="Inter, sans-serif"))
     for g, a, b in blocks:
+        if not g:   # one-time lanes: no tag rail, no guides (labels read cleaner on a plain band)
+            continue
         col = TAG_COL.get(g, MAN_COLOR)
-        fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-218, x1=-218,
+        fig.add_shape(type="line", xref="paper", xsizemode="pixel", xanchor=0, x0=-168, x1=-168,
                       y0=a - 0.32, y1=b + 0.32, line=dict(color=col, width=3))
-        fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-226, y=(a + b) / 2, yanchor="middle", showarrow=False,
+        fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-176, y=(a + b) / 2, yanchor="middle", showarrow=False,
                            text=f"<b><span style='color:{col}'>{g}</span></b>", font=dict(size=12, family="Inter, sans-serif"))
         for yy in sorted({v for v in ypos.values() if a <= v <= b}):   # light lane guide in the tag colour
             fig.add_shape(type="line", x0=xrange[0], x1=xrange[1], y0=yy, y1=yy, layer="below",
                           line=dict(color=col, width=1, dash="dot"), opacity=.28)
     for yy, name, sub in names:   # recurring names, left-aligned beside the rail like a table column
-        fig.add_annotation(xref="paper", x=0, xanchor="left", xshift=-208, y=yy, yanchor="middle", showarrow=False, align="left",
+        fig.add_annotation(xref="paper", x=0, xanchor="left", xshift=-158, y=yy, yanchor="middle", showarrow=False, align="left",
                            text=f"<span style='color:{ink}'>{name}</span><br><span style='color:#a3abbd;font-size:9.5px'>{sub}</span>",
                            font=dict(size=11.5, family="Inter, sans-serif"))
     for r in occ.sort_values("start").itertuples():
@@ -934,11 +941,11 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                + (f"<br><br><span style='color:#5a6688'>{html.escape(r.description)}</span>" if r.description else "") + "<extra></extra>")
         if r.n > 1:
             b0, b1 = max(r.start, xrange[0]), r.stop + pd.Timedelta(days=1)
-            fig.add_trace(go.Bar(orientation="h", base=[b0], y=[ly], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
-                                 marker=dict(color=col, opacity=.35, cornerradius=6, line_width=0), hovertemplate=hov))
-            # title as its own label from the bar start: full size, never squeezed by a short bar; dates stay in the hover
-            fig.add_trace(go.Scatter(x=[b0], y=[ly], mode="text", text=[f"  <b>{name}</b>"], textposition="middle right",
-                                     hovertemplate=hov, textfont=dict(color=ink, size=12.5, family="Inter, sans-serif")))
+            fig.add_trace(go.Bar(orientation="h", base=[b0], y=[ly], x=[(b1 - b0).total_seconds() * 1000], width=0.42,
+                                 marker=dict(color=col, opacity=.85, cornerradius=8, line_width=0), hovertemplate=hov))
+            if not r.rec:   # title right after the pill: full size, never squeezed by a short span
+                fig.add_trace(go.Scatter(x=[b1], y=[ly], mode="text", text=[f"  <b>{name}</b>"], textposition="middle right",
+                                         hovertemplate=hov, textfont=dict(color=ink, size=12, family="Inter, sans-serif")))
         else:
             fig.add_trace(go.Scatter(x=[r.start], y=[ly], mode="markers" if r.rec else "markers+text", hovertemplate=hov,
                                      marker=dict(symbol="star", size=14, color=col, line=dict(color="#ffffff", width=1.5)),
@@ -946,7 +953,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                                      textfont=dict(color=ink, size=11.5, family="Inter, sans-serif")))
     fig.add_vline(x=t0, layer="below", line=dict(color="rgba(10,36,99,0.45)", width=1.2))
     fig.update_layout(height=(30 if merged else 90) + int(34 * (y_end + 1)), showlegend=False, barmode="overlay",
-                      margin=dict(l=300, r=12, t=8 if merged else 40, b=10),
+                      margin=dict(l=230, r=12, t=8 if merged else 40, b=10),
                       plot_bgcolor="rgba(217,130,43,0.035)" if merged else "rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
     fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
@@ -1090,7 +1097,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
                                bgcolor=NAVY, borderpad=3, font=dict(size=9.5, color="#ffffff"))
 
             style_fig(fig, int(30 * (y_end + 1)) + 74)
-            fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=300, r=12, t=40, b=34), hovermode="closest",
+            fig.update_layout(barmode="overlay", bargap=0, margin=dict(l=230, r=12, t=40, b=34), hovermode="closest",
                               hoverlabel=dict(bgcolor="#ffffff", bordercolor="rgba(10,36,99,0.16)", align="left",
                                               font=dict(family="Inter, sans-serif", size=12, color="#1d1d1f")))
             fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
@@ -1098,23 +1105,25 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
                              range=[y_end + 0.5, -0.5], tickfont=dict(size=11), automargin=False)
             month_header(fig, *xrange, days=horizon <= 3)
-            k = st.session_state.get("tl_k", 0)                    # a fresh key after each click clears plotly's selection dimming
-            sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
-                                  on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
-            if sel and sel.selection and sel.selection.points:
-                st.session_state["tl_k"] = k + 1
-                st.rerun()
-            if not man_win.empty:                                   # every event in the window, expanded, under the markets
-                tl_tags = st.session_state.get("tagsel_tl") or list(TAG_COL)   # the tag pills sit at the very end
-                tl_win = man_win[man_win["group"].isin(tl_tags)]
-                st.markdown(f'<div style="margin:-14px 12px 0 300px;border-top:1.5px solid {MAN_COLOR};opacity:.55"></div>'
-                            f'<div style="margin:2px 0 -6px 12px;font:600 10.5px Inter,sans-serif;letter-spacing:.08em;color:{MAN_COLOR}">EVENTS</div>',
-                            unsafe_allow_html=True)
-                if tl_win.empty:
-                    st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
-                else:
-                    events_focus(tl_win, merged=True)
-                tag_legend("tl")
+            with st.container(key="tl_box"):                         # markets + events in one card
+                k = st.session_state.get("tl_k", 0)                    # a fresh key after each click clears plotly's selection dimming
+                sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
+                                      on_select="rerun", selection_mode="points", key=f"tl_chart_{k}")
+                if sel and sel.selection and sel.selection.points:
+                    st.session_state["tl_k"] = k + 1
+                    st.rerun()
+                if not man_win.empty:                                   # every event in the window, expanded, under the markets
+                    tl_tags = st.session_state.get("tagsel_tl") or list(TAG_COL)   # the tag pills sit at the very end
+                    tl_win = man_win[man_win["group"].isin(tl_tags)]
+                    st.markdown(f'<div style="margin:4px 12px 0 230px;border-top:1px solid {GOLD};opacity:.5"></div>'
+                                f'<div style="margin:-9px 0 2px 12px;font:600 10.5px Inter,sans-serif;letter-spacing:.08em;color:{MAN_COLOR}">EVENTS</div>',
+                                unsafe_allow_html=True)
+                    if tl_win.empty:
+                        st.markdown('<div class="card-desc" style="text-align:center">No events for these tags in this window.</div>', unsafe_allow_html=True)
+                    else:
+                        events_focus(tl_win, merged=True)
+                    tag_legend("tl")
+
 
 if tab_roll.open is not False:   # lazy: only the open tab runs
     with tab_roll:
