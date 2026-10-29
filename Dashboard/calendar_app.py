@@ -348,7 +348,8 @@ button[kind="pillsActive"] p, button[kind="segmented_controlActive"] p { color: 
 .stTabs [data-baseweb="tab"]:not([aria-selected="true"]):hover { background: rgba(43,74,138,.07) !important; }
 /* glacier cards: charts and tables in every tab */
 [data-testid="stMain"] [data-testid="stPlotlyChart"] { background: #ffffff;
-  border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 6px 8px; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
+  border: 1px solid rgba(43,74,138,.12); border-radius: 16px; padding: 0 8px; overflow: visible !important; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
+[data-testid="stMain"] [data-testid="stPlotlyChart"] * { overflow: visible; }   /* no inner scroll: charts show in full */
 .st-key-ent_tl_box [data-testid="stPlotlyChart"] { background: none; border: 0; box-shadow: none; padding: 0; }
 .up, .ht { background: linear-gradient(160deg, rgba(250,252,255,.97), rgba(240,245,252,.93) 60%, rgba(233,240,250,.9)) !important;
   border: 1px solid rgba(43,74,138,.12) !important; box-shadow: 0 6px 22px rgba(30,58,110,.07), inset 0 1px 0 rgba(255,255,255,.95); }
@@ -715,8 +716,8 @@ def fmt(d) -> str:
 manual = load_manual()
 man_view = by_day(manual[manual["group"].isin(man_groups)] if show_man else manual.iloc[0:0])
 
-tab_cal, tab_gantt, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
-    ["Calendar", "Market Timeline", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
+tab_gantt, tab_cal, tab_up, tab_roll, tab_heat, tab_hol, tab_ent = st.tabs(
+    ["Market Timeline", "Calendar", "Upcoming", "Roll Windows", "Event Heatmap", "Holidays", "Entry"],
     key="main_tab", on_change="rerun")
 
 if tab_up.open is not False:   # lazy: only the open tab runs
@@ -950,7 +951,7 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
                       hoverlabel=dict(bgcolor="#ffffff", bordercolor="#e3e7f0", font=dict(family="Inter, sans-serif", color="#1d1d1f", size=11)))
     fig.update_xaxes(range=xrange, type="date", side="top", showline=False, gridcolor="rgba(10,36,99,0.06)",
                      tickfont=dict(size=10.5, color="#8a94a8"))
-    fig.update_yaxes(range=[y_end + 0.6, -0.6], showticklabels=False, showgrid=False, zeroline=False)
+    fig.update_yaxes(range=[y_end + 0.6, -0.6], showticklabels=False, showgrid=False, zeroline=False, automargin=False)
     if merged:   # sits under the market chart, which already carries the dates
         fig.update_xaxes(showticklabels=False)
     else:
@@ -1095,7 +1096,7 @@ if tab_gantt.open is not False:   # lazy: only the open tab runs
             fig.update_xaxes(range=xrange, type="date", side="top", showline=False,
                              gridcolor="rgba(10,36,99,0.06)", tickfont=dict(size=10.5, color="#8a94a8"))
             fig.update_yaxes(tickmode="array", tickvals=tvals, ticktext=ticks,
-                             range=[y_end + 0.5, -0.5], tickfont=dict(size=11))
+                             range=[y_end + 0.5, -0.5], tickfont=dict(size=11), automargin=False)
             month_header(fig, *xrange, days=horizon <= 3)
             k = st.session_state.get("tl_k", 0)                    # a fresh key after each click clears plotly's selection dimming
             sel = st.plotly_chart(fig, width="stretch", config={"displayModeBar": False},
