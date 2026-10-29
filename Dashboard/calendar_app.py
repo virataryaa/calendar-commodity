@@ -934,9 +934,10 @@ def events_focus(win: pd.DataFrame, key: str = "tl_focus_chart", icy: bool = Fal
         if r.n > 1:
             b0, b1 = max(r.start, xrange[0]), r.stop + pd.Timedelta(days=1)
             fig.add_trace(go.Bar(orientation="h", base=[b0], y=[ly], x=[(b1 - b0).total_seconds() * 1000], width=0.5,
-                                 marker=dict(color=col, opacity=.55 if icy else .8, cornerradius=6, line_width=0), hovertemplate=hov,
-                                 text=[f"  {sp}" if r.rec else f"  {name}  ·  {sp}"], textposition="inside", insidetextanchor="start",
-                                 textfont=dict(color="#1e293b" if icy else "#ffffff", size=11.5, family="Inter, sans-serif")))
+                                 marker=dict(color=col, opacity=.35, cornerradius=6, line_width=0), hovertemplate=hov))
+            # title as its own label from the bar start: full size, never squeezed by a short bar; dates stay in the hover
+            fig.add_trace(go.Scatter(x=[b0], y=[ly], mode="text", text=[f"  <b>{name}</b>"], textposition="middle right",
+                                     hovertemplate=hov, textfont=dict(color=ink, size=12.5, family="Inter, sans-serif")))
         else:
             fig.add_trace(go.Scatter(x=[r.start], y=[ly], mode="markers" if r.rec else "markers+text", hovertemplate=hov,
                                      marker=dict(symbol="star", size=14, color=col, line=dict(color="#ffffff", width=1.5)),
