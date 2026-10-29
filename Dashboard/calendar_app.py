@@ -666,7 +666,7 @@ def hover_card(code: str, c: str, sub: str, rows: list, foot: str) -> str:
 
 
 def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
-    """Month strip across the top: alternating navy-tint blocks, centred labels (year in muted gold),
+    """Month strip across the top: alternating warm sand blocks, centred labels (year in muted gold),
     a gold hairline beneath, and a faint matching stripe down every other month of the plot.
     Shapes and labels are collected and added in one go (adding them one by one is very slow)."""
     x0, x1 = pd.Timestamp(x0), pd.Timestamp(x1)
@@ -677,7 +677,7 @@ def month_header(fig: go.Figure, x0, x1, days: bool = False) -> None:
     for i, m in enumerate(months):
         a, b = max(m, x0), min(m + pd.offsets.MonthBegin(1), x1)
         shapes.append(dict(type="rect", xref="x", x0=a, x1=b, yref="paper", ysizemode="pixel", yanchor=1, y0=7 + off, y1=31 + off,
-                           fillcolor="#e8ecf6" if i % 2 == 0 else "#f3f5fa", line=dict(color="#ffffff", width=2), layer="above"))
+                           fillcolor="#efe3cc" if i % 2 == 0 else "#f7efe0", line=dict(color="#ffffff", width=2), layer="above"))
         if i % 2 == 0:
             shapes.append(dict(type="rect", xref="x", x0=a, x1=b, yref="paper", y0=0, y1=1,
                                fillcolor="rgba(10,36,99,0.011)", line_width=0, layer="below"))
